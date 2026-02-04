@@ -1,12 +1,15 @@
 
 import React from 'react';
-import { ChevronLeft, Download, Share2, Sparkles, Receipt, FileText, CheckCircle2 } from 'lucide-react';
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   onBack: () => void;
 }
 
 export const InvoiceScreen: React.FC<Props> = ({ onBack }) => {
+  const insets = useSafeAreaInsets();
   // المبالغ المحددة
   const giftPrice = 250;
   const serviceFee = 80;
@@ -16,105 +19,343 @@ export const InvoiceScreen: React.FC<Props> = ({ onBack }) => {
   const total = subTotal + tax; // 437
 
   return (
-    <div className="flex-1 flex flex-col bg-[#FFFFFC] dark:bg-[#121212] h-full overflow-hidden">
+    <View style={styles.container}>
       {/* Header Navigation */}
-      <header className="px-6 py-4 flex items-center justify-between bg-white/80 dark:bg-[#1e1e1e]/80 backdrop-blur-md z-20 border-b border-gray-50 dark:border-gray-800">
-        <button onClick={onBack} className="p-2 bg-gray-50 dark:bg-gray-800 rounded-xl text-gray-400 active:scale-95 transition-all">
-          <ChevronLeft size={24} />
-        </button>
-        <h2 className="text-lg font-black text-gray-800 dark:text-white">تفاصيل الفاتورة</h2>
-        <div className="w-10"></div>
-      </header>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <Pressable onPress={onBack} style={styles.backButton}>
+          <Feather name="chevron-right" size={24} color="#9CA3AF" />
+        </Pressable>
+        <Text style={styles.headerTitle}>تفاصيل الفاتورة</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
       {/* Scrollable Content Container */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-6">
-        
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+
         {/* Main Receipt Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-6 shadow-soft border border-gray-100 dark:border-gray-700 relative overflow-hidden animate-in slide-in-from-bottom duration-500">
-          
+        <View style={styles.receiptCard}>
+
           {/* Status Badge */}
-          <div className="flex justify-center mb-6">
-            <div className="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-4 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 border border-green-100 dark:border-green-900/30">
-              <CheckCircle2 size={14} /> مدفوعة بالكامل
-            </div>
-          </div>
+          <View style={styles.statusBadge}>
+            <Feather name="check-circle" size={14} color="#10B981" />
+            <Text style={styles.statusText}>مدفوعة بالكامل</Text>
+          </View>
 
           {/* Brand Info */}
-          <div className="text-center mb-8">
-            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <Sparkles className="text-primary" size={28} />
-            </div>
-            <h3 className="text-xl font-black text-gray-800 dark:text-white">هديتي للخدمات</h3>
-            <div className="flex items-center justify-center gap-3 mt-2">
-              <span className="text-[9px] text-gray-400 font-black">رقم الفاتورة: #INV-8742</span>
-              <span className="text-[9px] text-gray-400 font-black">التاريخ: 2024/02/24</span>
-            </div>
-          </div>
+          <View style={styles.brandInfo}>
+            <View style={styles.brandIcon}>
+              <Feather name="star" size={28} color="#E0AAFF" />
+            </View>
+            <Text style={styles.brandName}>هديتي للخدمات</Text>
+            <View style={styles.invoiceDetails}>
+              <Text style={styles.invoiceNumber}>رقم الفاتورة: #INV-8742</Text>
+              <Text style={styles.invoiceDate}>التاريخ: 2024/02/24</Text>
+            </View>
+          </View>
 
           {/* Detailed Price List - Compact Style */}
-          <div className="bg-gray-50 dark:bg-gray-900/40 rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700 max-w-[90%] mx-auto">
-            {/* Table Row: Gift */}
-            <div className="flex justify-between items-center p-3.5 border-b border-gray-100 dark:border-gray-800">
-              <span className="text-xs font-black text-gray-700 dark:text-gray-300">قيمة الهدية</span>
-              <span className="text-sm font-black text-gray-800 dark:text-white">{giftPrice.toFixed(2)} ر.س</span>
-            </div>
-
-            {/* Table Row: Service */}
-            <div className="flex justify-between items-center p-3.5 border-b border-gray-100 dark:border-gray-800">
-              <span className="text-xs font-black text-gray-700 dark:text-gray-300">رسوم الخدمة</span>
-              <span className="text-sm font-black text-gray-800 dark:text-white">{serviceFee.toFixed(2)} ر.س</span>
-            </div>
-
-            {/* Table Row: Delivery */}
-            <div className="flex justify-between items-center p-3.5">
-              <span className="text-xs font-black text-gray-700 dark:text-gray-300">رسوم التوصيل</span>
-              <span className="text-sm font-black text-gray-800 dark:text-white">{deliveryFee.toFixed(2)} ر.س</span>
-            </div>
-          </div>
+          <View style={styles.priceList}>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>قيمة الهدية</Text>
+              <Text style={styles.priceValue}>{giftPrice.toFixed(2)} ر.س</Text>
+            </View>
+            <View style={[styles.priceRow, styles.priceRowBorder]}>
+              <Text style={styles.priceLabel}>رسوم الخدمة</Text>
+              <Text style={styles.priceValue}>{serviceFee.toFixed(2)} ر.س</Text>
+            </View>
+            <View style={[styles.priceRow, styles.priceRowBorder]}>
+              <Text style={styles.priceLabel}>رسوم التوصيل</Text>
+              <Text style={styles.priceValue}>{deliveryFee.toFixed(2)} ر.س</Text>
+            </View>
+          </View>
 
           {/* Totals Section */}
-          <div className="mt-8 pt-6 border-t-2 border-dashed border-gray-100 dark:border-gray-700 space-y-3 px-2">
-            <div className="flex justify-between items-center px-2">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">المجموع الفرعي</span>
-              <span className="text-xs font-black text-gray-600 dark:text-gray-400">{subTotal.toFixed(2)} ر.س</span>
-            </div>
-            <div className="flex justify-between items-center px-2">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">الضريبة (15%)</span>
-              <span className="text-xs font-black text-gray-600 dark:text-gray-400">{tax.toFixed(2)} ر.س</span>
-            </div>
+          <View style={styles.totalsSection}>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>المجموع الفرعي</Text>
+              <Text style={styles.totalValue}>{subTotal.toFixed(2)} ر.س</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>الضريبة (15%)</Text>
+              <Text style={styles.totalValue}>{tax.toFixed(2)} ر.س</Text>
+            </View>
 
-            <div className="bg-primary rounded-[2rem] p-5 mt-5 flex justify-between items-center shadow-soft text-white">
-              <div>
-                <p className="text-[10px] font-black uppercase opacity-80">المبلغ الإجمالي</p>
-                <p className="text-[10px] font-bold leading-tight">صافي المدفوع</p>
-              </div>
-              <div className="text-left">
-                <span className="text-2xl font-black">{total.toFixed(2)}</span>
-                <span className="text-[10px] font-bold mr-1">ر.س</span>
-              </div>
-            </div>
-          </div>
+            <View style={styles.totalAmount}>
+              <View style={styles.totalAmountLeft}>
+                <Text style={styles.totalAmountLabel}>المبلغ الإجمالي</Text>
+                <Text style={styles.totalAmountSubLabel}>صافي المدفوع</Text>
+              </View>
+              <View style={styles.totalAmountRight}>
+                <Text style={styles.totalAmountValue}>{total.toFixed(2)}</Text>
+                <Text style={styles.totalAmountCurrency}>ر.س</Text>
+              </View>
+            </View>
+          </View>
 
           {/* Footer Note */}
-          <div className="mt-6 text-center">
-             <div className="inline-flex items-center gap-2 text-gray-300 dark:text-gray-600">
-                <Receipt size={12} />
-                <p className="text-[8px] font-black uppercase tracking-[0.2em]">Digital Invoice</p>
-             </div>
-          </div>
-        </div>
+          <View style={styles.footerNote}>
+            <Feather name="file-text" size={12} color="#9CA3AF" />
+            <Text style={styles.footerText}>Digital Invoice</Text>
+          </View>
+        </View>
 
         {/* Buttons */}
-        <div className="grid grid-cols-2 gap-4">
-          <button className="h-14 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm flex items-center justify-center gap-2 text-gray-600 dark:text-gray-300 font-black text-xs active:scale-95 transition-all">
-            <Download size={18} className="text-primary" /> تحميل PDF
-          </button>
-          <button className="h-14 bg-primary text-white rounded-2xl shadow-soft flex items-center justify-center gap-2 font-black text-xs active:scale-95 transition-all">
-            <Share2 size={18} /> مشاركة
-          </button>
-        </div>
+        <View style={styles.buttonsContainer}>
+          <Pressable style={styles.downloadButton}>
+            <Feather name="download" size={18} color="#E0AAFF" />
+            <Text style={styles.downloadButtonText}>تحميل PDF</Text>
+          </Pressable>
+          <Pressable style={styles.shareButton}>
+            <Feather name="share-2" size={18} color="white" />
+            <Text style={styles.shareButtonText}>مشاركة</Text>
+          </Pressable>
+        </View>
 
-      </div>
-    </div>
+      </ScrollView>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFC',
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  backButton: {
+    padding: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 24,
+    gap: 24,
+  },
+  receiptCard: {
+    backgroundColor: 'white',
+    borderRadius: 40,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#F9FAFB',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+    alignSelf: 'center',
+    marginBottom: 24,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#10B981',
+    textTransform: 'uppercase',
+  },
+  brandInfo: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  brandIcon: {
+    width: 56,
+    height: 56,
+    backgroundColor: 'rgba(224, 170, 255, 0.1)',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  brandName: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  invoiceDetails: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  invoiceNumber: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#9CA3AF',
+  },
+  invoiceDate: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#9CA3AF',
+  },
+  priceList: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    alignSelf: 'center',
+    width: '90%',
+    overflow: 'hidden',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+  },
+  priceRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  priceLabel: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#374151',
+  },
+  priceValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1F2937',
+  },
+  totalsSection: {
+    marginTop: 32,
+    paddingTop: 24,
+    borderTopWidth: 2,
+    borderTopColor: '#F3F4F6',
+    borderStyle: 'dashed',
+    gap: 12,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  totalLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+  },
+  totalValue: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#6B7280',
+  },
+  totalAmount: {
+    backgroundColor: '#E0AAFF',
+    borderRadius: 32,
+    padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  totalAmountLeft: {
+    gap: 4,
+  },
+  totalAmountLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: 'rgba(255, 255, 255, 0.8)',
+    textTransform: 'uppercase',
+  },
+  totalAmountSubLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  totalAmountRight: {
+    alignItems: 'flex-end',
+  },
+  totalAmountValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: 'white',
+  },
+  totalAmountCurrency: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  footerNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 24,
+  },
+  footerText: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+  },
+  buttonsContainer: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  downloadButton: {
+    flex: 1,
+    height: 56,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  downloadButtonText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#6B7280',
+  },
+  shareButton: {
+    flex: 1,
+    height: 56,
+    backgroundColor: '#E0AAFF',
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  shareButtonText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+});

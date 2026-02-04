@@ -15,7 +15,7 @@ export const RoleSelectionScreen: React.FC<Props> = ({ onSelectCustomer, onSelec
         <View style={styles.logoBox}>
           <View style={styles.ribbonVertical} />
           <View style={styles.ribbonHorizontal} />
-          <Feather name="sparkles" size={40} color="white" />
+          <Feather name="star" size={40} color="white" />
         </View>
         <Text style={styles.brandName}>هديتي</Text>
         <Text style={styles.subtitle}>اختر كيف تريد الانضمام إلينا</Text>
@@ -44,7 +44,7 @@ export const RoleSelectionScreen: React.FC<Props> = ({ onSelectCustomer, onSelec
       </View>
 
       <View style={styles.footer}>
-        <Feather name="sparkles" size={16} color="#E0AAFF" />
+        <Feather name="star" size={16} color="#E0AAFF" />
         <Text style={styles.footerText}>بكل حب، في خدمتك دائماً</Text>
       </View>
     </View>

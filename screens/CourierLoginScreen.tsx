@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
-import { Phone, ArrowLeft, ShieldCheck, Car } from 'lucide-react';
+import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   onNext: () => void;
@@ -8,80 +10,209 @@ interface Props {
 }
 
 export const CourierLoginScreen: React.FC<Props> = ({ onNext, onBack }) => {
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState<'LOGIN' | 'DOCS'>('LOGIN');
 
   return (
-    <div className="flex-1 flex flex-col p-8 bg-[#FFFFFC]">
-      <button onClick={onBack} className="self-start p-2 bg-white rounded-xl shadow-sm text-gray-400 mb-8">
-        <ArrowLeft size={24} className="rotate-180" />
-      </button>
+    <View style={[styles.container, { paddingTop: insets.top + 32 }]}>
+      <Pressable onPress={onBack} style={styles.backButton}>
+        <Feather name="chevron-right" size={24} color="#9CA3AF" />
+      </Pressable>
 
       {step === 'LOGIN' ? (
-        <div className="space-y-8 animate-in slide-in-from-bottom duration-500">
-          <div>
-            <h1 className="text-3xl font-black text-gray-800">تسجيل المندوب</h1>
-            <p className="text-gray-400 mt-2 font-medium">انضم لأسرة مندوبين هديتي</p>
-          </div>
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Text style={styles.title}>تسجيل المندوب</Text>
+            <Text style={styles.subtitle}>انضم لأسرة مندوبين هديتي</Text>
+          </View>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700">رقم الجوال</label>
-              <div className="relative">
-                <input
-                  type="tel"
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>رقم الجوال</Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
                   placeholder="5xxxxxxxx"
-                  className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-12 text-left focus:border-[#E0AAFF] outline-none transition-all"
-                  dir="ltr"
+                  keyboardType="phone-pad"
+                  placeholderTextColor="#9CA3AF"
                 />
-                <Phone className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" size={20} />
-              </div>
-            </div>
+                <View style={styles.phoneIcon}>
+                  <Feather name="phone" size={20} color="#9CA3AF" />
+                </View>
+              </View>
+            </View>
 
-            <button
-              onClick={() => setStep('DOCS')}
-              className="w-full h-16 bg-[#E0AAFF] text-white rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all"
-            >
-              المتابعة للبيانات
-            </button>
-          </div>
-        </div>
+            <Pressable onPress={() => setStep('DOCS')} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>المتابعة للبيانات</Text>
+            </Pressable>
+          </View>
+        </View>
       ) : (
-        <div className="space-y-8 animate-in slide-in-from-left duration-500">
-          <div>
-            <h1 className="text-3xl font-black text-gray-800">بيانات المركبة</h1>
-            <p className="text-gray-400 mt-2 font-medium">نحتاج لبعض الوثائق للتحقق</p>
-          </div>
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Text style={styles.title}>بيانات المركبة</Text>
+            <Text style={styles.subtitle}>نحتاج لبعض الوثائق للتحقق</Text>
+          </View>
 
-          <div className="space-y-4">
-            <div className="bg-white p-5 rounded-3xl border-2 border-dashed border-gray-100 flex items-center justify-between group hover:border-[#E0AAFF] transition-all cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#E0AAFF]/10 text-[#E0AAFF] rounded-xl flex items-center justify-center">
-                  <ShieldCheck size={24} />
-                </div>
-                <span className="font-bold text-gray-700">رخصة القيادة</span>
-              </div>
-              <span className="text-[#E0AAFF] text-sm font-bold">رفع صورة</span>
-            </div>
+          <View style={styles.form}>
+            <Pressable style={styles.documentCard}>
+              <View style={styles.documentLeft}>
+                <View style={styles.documentIcon}>
+                  <Feather name="shield" size={24} color="#E0AAFF" />
+                </View>
+                <Text style={styles.documentText}>رخصة القيادة</Text>
+              </View>
+              <Text style={styles.uploadText}>رفع صورة</Text>
+            </Pressable>
 
-            <div className="bg-white p-5 rounded-3xl border-2 border-dashed border-gray-100 flex items-center justify-between group hover:border-[#E0AAFF] transition-all cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#E0AAFF]/10 text-[#E0AAFF] rounded-xl flex items-center justify-center">
-                  <Car size={24} />
-                </div>
-                <span className="font-bold text-gray-700">استمارة المركبة</span>
-              </div>
-              <span className="text-[#E0AAFF] text-sm font-bold">رفع صورة</span>
-            </div>
+            <Pressable style={styles.documentCard}>
+              <View style={styles.documentLeft}>
+                <View style={styles.documentIcon}>
+                  <Feather name="truck" size={24} color="#E0AAFF" />
+                </View>
+                <Text style={styles.documentText}>استمارة المركبة</Text>
+              </View>
+              <Text style={styles.uploadText}>رفع صورة</Text>
+            </Pressable>
 
-            <button
-              onClick={onNext}
-              className="w-full h-16 bg-[#E0AAFF] text-white rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all mt-6"
-            >
-              إرسال للتدقيق
-            </button>
-          </div>
-        </div>
+            <Pressable onPress={onNext} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>إرسال للتدقيق</Text>
+            </Pressable>
+          </View>
+        </View>
       )}
-    </div>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 32,
+    backgroundColor: '#FFFFFC',
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    padding: 8,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 32,
+  },
+  content: {
+    flex: 1,
+    gap: 32,
+  },
+  header: {
+    gap: 8,
+  },
+  title: {
+    fontSize: 30,
+    fontWeight: '900',
+    color: '#1F2937',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  form: {
+    gap: 24,
+  },
+  inputGroup: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  inputContainer: {
+    position: 'relative',
+  },
+  input: {
+    width: '100%',
+    height: 56,
+    backgroundColor: 'white',
+    borderWidth: 2,
+    borderColor: '#F9FAFB',
+    borderRadius: 16,
+    paddingHorizontal: 48,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    textAlign: 'left',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  phoneIcon: {
+    position: 'absolute',
+    right: 16,
+    top: '50%',
+    transform: [{ translateY: -10 }],
+  },
+  primaryButton: {
+    width: '100%',
+    height: 64,
+    backgroundColor: '#E0AAFF',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#E0AAFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  primaryButtonText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: 'white',
+  },
+  documentCard: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: '#F9FAFB',
+    borderStyle: 'dashed',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  documentLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  documentIcon: {
+    width: 48,
+    height: 48,
+    backgroundColor: 'rgba(224, 170, 255, 0.1)',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  documentText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  uploadText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#E0AAFF',
+  },
+});

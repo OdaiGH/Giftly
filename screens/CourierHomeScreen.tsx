@@ -1,10 +1,21 @@
 
 import React, { useState } from 'react';
-import { Package, Truck, DollarSign, LogOut, Bell, User, Star, CheckCircle, Phone, MapPin, Image as ImageIcon, Plus, X, Sparkles, Upload, ChevronRight, Clock, Map, Gift } from 'lucide-react';
+import { View, Text, Pressable, ScrollView, StyleSheet, Image, Dimensions } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   onLogout: () => void;
   onAcceptOrder: () => void;
+  isDarkMode: boolean;
+  toggleDarkMode: () => void;
+  theme: {
+    backgroundColor: string;
+    textColor: string;
+    secondaryTextColor: string;
+    cardBackground: string;
+    borderColor: string;
+  };
 }
 
 type OrderStatus = 'PREPARING' | 'DELIVERING' | 'DELIVERED';
@@ -36,211 +47,919 @@ const PORTFOLIO_IMAGES = [
   'https://picsum.photos/seed/gift4/400/400',
 ];
 
-export const CourierHomeScreen: React.FC<Props> = ({ onLogout, onAcceptOrder }) => {
+export const CourierHomeScreen: React.FC<Props> = ({ onLogout, onAcceptOrder, isDarkMode, toggleDarkMode, theme }) => {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'available' | 'active' | 'wallet' | 'profile' | 'notifications'>('available');
   const [portfolio, setPortfolio] = useState(PORTFOLIO_IMAGES);
-  
+
   // Simulated active orders for tracking
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([
     { id: '8742', item: 'باقة جوري + شوكولاتة', customer: 'محمد العتيبي', status: 'PREPARING', location: 'حي الياسمين، الرياض' }
   ]);
 
   const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
-    setActiveOrders(prev => prev.map(order => 
+    setActiveOrders(prev => prev.map(order =>
       order.id === orderId ? { ...order, status: newStatus } : order
     ));
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-[#FFFFFC] dark:bg-[#121212] overflow-hidden relative h-full">
+    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       {/* Header - Fixed */}
-      <div className="p-6 bg-white dark:bg-gray-800 border-b border-gray-50 dark:border-gray-700 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-[#E0AAFF] rounded-2xl flex items-center justify-center text-white shadow-lg">
-            <Truck size={24} />
-          </div>
-          <div>
-            <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">مندوب هديتي</p>
-            <h3 className="text-lg font-black text-gray-800 dark:text-white">أحمد بن فهد</h3>
-          </div>
-        </div>
-        <button onClick={onLogout} className="p-2.5 text-red-400 bg-red-50 dark:bg-red-900/10 rounded-xl active:scale-95 transition-all">
-          <LogOut size={20} />
-        </button>
-      </div>
+      <View style={[styles.header, {
+        paddingTop: Math.max(insets.top + 16, Dimensions.get('window').height * 0.05),
+        backgroundColor: theme.cardBackground,
+        borderBottomColor: theme.borderColor
+      }]}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <View style={styles.truckIcon}>
+              <Feather name="truck" size={24} color="white" />
+            </View>
+            <View>
+              <Text style={[styles.headerSubtitle, { color: theme.secondaryTextColor }]}>مندوب هديتي</Text>
+              <Text style={[styles.headerTitle, { color: theme.textColor }]}>أحمد بن فهد</Text>
+            </View>
+          </View>
+        </View>
+        <Pressable onPress={onLogout} style={styles.logoutButton}>
+          <Feather name="log-out" size={20} color="#EF4444" />
+        </Pressable>
+      </View>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto no-scrollbar pb-32">
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {(activeTab === 'available' || activeTab === 'active') && (
-          <div className="animate-in fade-in duration-500">
+          <View>
             {/* Stats Summary */}
-            <div className="px-6 grid grid-cols-2 gap-4 mt-6">
-              <div className="bg-white dark:bg-gray-800 p-5 rounded-[2rem] shadow-sm border border-gray-50 dark:border-gray-700 text-center">
-                <p className="text-[10px] text-gray-400 font-black uppercase mb-1 tracking-tighter">أرباح اليوم</p>
-                <span className="text-2xl font-black text-[#E0AAFF]">145 <span className="text-xs">ر.س</span></span>
-              </div>
-              <div className="bg-white dark:bg-gray-800 p-5 rounded-[2rem] shadow-sm border border-gray-50 dark:border-gray-700 text-center">
-                <p className="text-[10px] text-gray-400 font-black uppercase mb-1 tracking-tighter">طلبات مكتملة</p>
-                <span className="text-2xl font-black text-[#E0AAFF]">8</span>
-              </div>
-            </div>
+            <View style={styles.statsContainer}>
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>أرباح اليوم</Text>
+                <Text style={styles.statValue}>145 <Text style={styles.currency}>ر.س</Text></Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>طلبات مكتملة</Text>
+                <Text style={styles.statValue}>8</Text>
+              </View>
+            </View>
 
             {/* Tabs */}
-            <div className="px-6 mt-8">
-              <div className="flex gap-4 p-1.5 bg-gray-50 dark:bg-gray-900 rounded-3xl">
-                <button 
-                  onClick={() => setActiveTab('available')}
-                  className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all ${activeTab === 'available' ? 'bg-white dark:bg-gray-800 text-[#E0AAFF] shadow-sm' : 'text-gray-400'}`}
+            <View style={styles.tabsContainer}>
+              <View style={styles.tabsBackground}>
+                <Pressable
+                  onPress={() => setActiveTab('available')}
+                  style={[styles.tab, activeTab === 'available' && styles.activeTab]}
                 >
-                  طلبات متاحة
-                </button>
-                <button 
-                  onClick={() => setActiveTab('active')}
-                  className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all ${activeTab === 'active' ? 'bg-white dark:bg-gray-800 text-[#E0AAFF] shadow-sm' : 'text-gray-400'}`}
+                  <Text style={[styles.tabText, activeTab === 'available' && styles.activeTabText]}>طلبات متاحة</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setActiveTab('active')}
+                  style={[styles.tab, activeTab === 'active' && styles.activeTab]}
                 >
-                  طلباتي النشطة
-                </button>
-              </div>
-            </div>
+                  <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>طلباتي النشطة</Text>
+                </Pressable>
+              </View>
+            </View>
 
-            <div className="px-6 mt-6 space-y-4">
+            <View style={styles.ordersContainer}>
               {activeTab === 'available' ? (
                 NEW_ORDERS.map(order => (
-                  <div key={order.id} className="bg-white dark:bg-gray-800 p-5 rounded-[2.5rem] shadow-sm border border-gray-50 dark:border-gray-700 animate-in slide-in-from-bottom duration-300">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex gap-4">
-                        <div className="w-12 h-12 bg-[#E0AAFF]/10 rounded-2xl flex items-center justify-center text-[#E0AAFF]"><Package size={24} /></div>
-                        <div>
-                          <h4 className="font-bold text-gray-800 dark:text-white">طلب #{order.id}</h4>
-                          <p className="text-xs text-gray-400 dark:text-gray-300 font-medium mt-1">{order.item}</p>
-                        </div>
-                      </div>
-                      <div className="text-left"><span className="text-sm font-black text-[#E0AAFF]">{order.price} ر.س</span></div>
-                    </div>
-                    <div className="flex items-center justify-end pt-4 border-t border-gray-50 dark:border-gray-700">
-                      <button onClick={onAcceptOrder} className="px-8 py-2 bg-[#E0AAFF] text-white rounded-xl text-xs font-bold shadow-md active:scale-95">قبول الطلب</button>
-                    </div>
-                  </div>
+                  <View key={order.id} style={styles.orderCard}>
+                    <View style={styles.orderHeader}>
+                      <View style={styles.orderLeft}>
+                        <View style={styles.packageIcon}>
+                          <Feather name="package" size={24} color="#E0AAFF" />
+                        </View>
+                        <View>
+                          <Text style={styles.orderTitle}>طلب #{order.id}</Text>
+                          <Text style={styles.orderSubtitle}>{order.item}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.orderPrice}>{order.price} ر.س</Text>
+                    </View>
+                    <View style={styles.orderFooter}>
+                      <Pressable onPress={onAcceptOrder} style={styles.acceptButton}>
+                        <Text style={styles.acceptButtonText}>قبول الطلب</Text>
+                      </Pressable>
+                    </View>
+                  </View>
                 ))
               ) : (
                 activeOrders.length > 0 ? (
                   activeOrders.map(order => (
-                    <div key={order.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] shadow-soft border border-[#E0AAFF]/10 animate-in slide-in-from-bottom duration-300">
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-[#E0AAFF]/10 text-[#E0AAFF] rounded-xl flex items-center justify-center"><Package size={20} /></div>
-                          <div>
-                            <h4 className="font-black text-gray-800 dark:text-white text-sm">طلب #{order.id}</h4>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase">{order.customer}</p>
-                          </div>
-                        </div>
-                        <div className="bg-green-50 dark:bg-green-900/10 text-green-500 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tight">نشط الآن</div>
-                      </div>
+                    <View key={order.id} style={styles.activeOrderCard}>
+                      <View style={styles.activeOrderHeader}>
+                        <View style={styles.activeOrderLeft}>
+                          <View style={styles.activePackageIcon}>
+                            <Feather name="package" size={20} color="#E0AAFF" />
+                          </View>
+                          <View>
+                            <Text style={styles.activeOrderTitle}>طلب #{order.id}</Text>
+                            <Text style={styles.activeOrderSubtitle}>{order.customer}</Text>
+                          </View>
+                        </View>
+                        <View style={styles.activeBadge}>
+                          <Text style={styles.activeBadgeText}>نشط الآن</Text>
+                        </View>
+                      </View>
 
-                      <div className="space-y-6">
-                         <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest text-right">تحديث مسار الطلب</p>
-                         <div className="flex items-center justify-between relative px-2">
-                            <div className="absolute top-5 left-8 right-8 h-0.5 bg-gray-100 dark:bg-gray-700 -z-0"></div>
-                            <div className={`absolute top-5 left-8 h-0.5 bg-[#E0AAFF] transition-all duration-500 -z-0 ${order.status === 'PREPARING' ? 'w-0' : order.status === 'DELIVERING' ? 'w-[50%]' : 'w-full'}`}></div>
-                            
-                            <button onClick={() => updateOrderStatus(order.id, 'PREPARING')} className="flex flex-col items-center gap-2 relative z-10">
-                               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${order.status === 'PREPARING' ? 'bg-[#E0AAFF] text-white shadow-soft scale-110' : 'bg-white dark:bg-gray-800 text-gray-300 border border-gray-100 dark:border-gray-700'}`}><Gift size={18} /></div>
-                               <span className={`text-[9px] font-black ${order.status === 'PREPARING' ? 'text-[#E0AAFF]' : 'text-gray-400'}`}>تجهيز الهدية</span>
-                            </button>
+                      <View style={styles.progressSection}>
+                        <Text style={styles.progressTitle}>تحديث مسار الطلب</Text>
+                        <View style={styles.progressContainer}>
+                          <View style={styles.progressBar}>
+                            <View style={[styles.progressFill, {
+                              width: order.status === 'PREPARING' ? '0%' :
+                                     order.status === 'DELIVERING' ? '50%' : '100%'
+                            }]} />
+                          </View>
 
-                            <button onClick={() => updateOrderStatus(order.id, 'DELIVERING')} className="flex flex-col items-center gap-2 relative z-10">
-                               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${order.status === 'DELIVERING' ? 'bg-[#E0AAFF] text-white shadow-soft scale-110' : order.status === 'DELIVERED' ? 'bg-green-100 text-green-500' : 'bg-gray-50 dark:bg-gray-800 text-gray-300 border border-gray-100 dark:border-gray-700'}`}><Truck size={18} /></div>
-                               <span className={`text-[9px] font-black ${order.status === 'DELIVERING' ? 'text-[#E0AAFF]' : 'text-gray-400'}`}>في الطريق</span>
-                            </button>
+                          <Pressable onPress={() => updateOrderStatus(order.id, 'PREPARING')} style={[styles.progressStep, order.status === 'PREPARING' && styles.activeStep]}>
+                            <View style={[styles.stepIcon, order.status === 'PREPARING' && styles.activeStepIcon]}>
+                              <Feather name="gift" size={18} color={order.status === 'PREPARING' ? 'white' : '#9CA3AF'} />
+                            </View>
+                            <Text style={[styles.stepText, order.status === 'PREPARING' && styles.activeStepText]}>تجهيز الهدية</Text>
+                          </Pressable>
 
-                            <button onClick={() => updateOrderStatus(order.id, 'DELIVERED')} className="flex flex-col items-center gap-2 relative z-10">
-                               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${order.status === 'DELIVERED' ? 'bg-green-500 text-white shadow-soft scale-110' : 'bg-white dark:bg-gray-800 text-gray-300 border border-gray-100 dark:border-gray-700'}`}><CheckCircle size={18} /></div>
-                               <span className={`text-[9px] font-black ${order.status === 'DELIVERED' ? 'text-green-500' : 'text-gray-400'}`}>تم التسليم</span>
-                            </button>
-                         </div>
-                      </div>
+                          <Pressable onPress={() => updateOrderStatus(order.id, 'DELIVERING')} style={[styles.progressStep, order.status === 'DELIVERING' && styles.activeStep]}>
+                            <View style={[styles.stepIcon, order.status === 'DELIVERING' && styles.activeStepIcon]}>
+                              <Feather name="truck" size={18} color={order.status === 'DELIVERING' ? 'white' : '#9CA3AF'} />
+                            </View>
+                            <Text style={[styles.stepText, order.status === 'DELIVERING' && styles.activeStepText]}>في الطريق</Text>
+                          </Pressable>
 
-                      <div className="mt-8 pt-6 border-t border-gray-50 dark:border-gray-700 flex gap-3">
-                         <button onClick={onAcceptOrder} className="flex-1 py-3 bg-[#E0AAFF]/10 text-[#E0AAFF] rounded-2xl font-bold text-xs active:scale-95 transition-all flex items-center justify-center gap-2"><Map size={16} /> فتح الخريطة</button>
-                         <button onClick={onAcceptOrder} className="flex-1 py-3 bg-[#E0AAFF] text-white rounded-2xl font-bold text-xs shadow-soft active:scale-95 transition-all">الدردشة مع العميل</button>
-                      </div>
-                    </div>
+                          <Pressable onPress={() => updateOrderStatus(order.id, 'DELIVERED')} style={[styles.progressStep, order.status === 'DELIVERED' && styles.activeStep]}>
+                            <View style={[styles.stepIcon, order.status === 'DELIVERED' && styles.activeStepIcon]}>
+                              <Feather name="check-circle" size={18} color={order.status === 'DELIVERED' ? 'white' : '#9CA3AF'} />
+                            </View>
+                            <Text style={[styles.stepText, order.status === 'DELIVERED' && styles.activeStepText]}>تم التسليم</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+
+                      <View style={styles.activeOrderFooter}>
+                        <Pressable onPress={onAcceptOrder} style={styles.mapButton}>
+                          <Feather name="map" size={16} color="#E0AAFF" />
+                          <Text style={styles.mapButtonText}>فتح الخريطة</Text>
+                        </Pressable>
+                        <Pressable onPress={onAcceptOrder} style={styles.chatButton}>
+                          <Text style={styles.chatButtonText}>الدردشة مع العميل</Text>
+                        </Pressable>
+                      </View>
+                    </View>
                   ))
                 ) : (
-                  <div className="text-center py-12 opacity-40">
-                    <div className="w-20 h-20 bg-gray-50 dark:bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-4"><Package size={32} /></div>
-                    <p className="font-bold text-gray-500 dark:text-gray-400">لا توجد طلبات نشطة حالياً</p>
-                  </div>
+                  <View style={styles.emptyState}>
+                    <View style={styles.emptyIcon}>
+                      <Feather name="package" size={32} color="#9CA3AF" />
+                    </View>
+                    <Text style={styles.emptyText}>لا توجد طلبات نشطة حالياً</Text>
+                  </View>
                 )
               )}
-            </div>
-          </div>
+            </View>
+            </View>
         )}
 
         {activeTab === 'notifications' && (
-          <div className="p-6 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between mb-8">
-               <h2 className="text-2xl font-black text-gray-800 dark:text-white">التنبيهات</h2>
-               <span className="bg-[#E0AAFF]/20 text-[#E0AAFF] px-3 py-1 rounded-full text-[10px] font-black uppercase">3 جديد</span>
-            </div>
-            <div className="space-y-4">
+          <View style={styles.notificationsContainer}>
+            <View style={styles.notificationsHeader}>
+              <Text style={styles.notificationsTitle}>التنبيهات</Text>
+              <View style={styles.newBadge}>
+                <Text style={styles.newBadgeText}>3 جديد</Text>
+              </View>
+            </View>
+            <View style={styles.notificationsList}>
               {NOTIFICATIONS.map(note => (
-                <div key={note.id} className="bg-white dark:bg-gray-800 p-5 rounded-[2rem] shadow-sm border border-gray-50 dark:border-gray-700 flex items-start gap-4 hover:border-[#E0AAFF]/30 transition-all cursor-pointer">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                    note.type === 'new_order' ? 'bg-blue-50 text-blue-500' : 
-                    note.type === 'payment' ? 'bg-green-50 text-green-500' : 'bg-amber-50 text-amber-500'
-                  }`}>
-                    {note.type === 'new_order' ? <Package size={20} /> : note.type === 'payment' ? <DollarSign size={20} /> : <Star size={20} />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-bold text-gray-800 dark:text-white text-sm">{note.title}</h4>
-                      <span className="text-[9px] text-gray-300 font-bold">{note.time}</span>
-                    </div>
-                    <p className="text-xs text-gray-400 dark:text-gray-300 leading-relaxed">{note.body}</p>
-                  </div>
-                </div>
+                <Pressable key={note.id} style={styles.notificationItem}>
+                  <View style={[styles.notificationIcon, {
+                    backgroundColor: note.type === 'new_order' ? 'rgba(59, 130, 246, 0.1)' :
+                                   note.type === 'payment' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'
+                  }]}>
+                    <Feather
+                      name={note.type === 'new_order' ? 'package' : note.type === 'payment' ? 'dollar-sign' : 'star'}
+                      size={20}
+                      color={note.type === 'new_order' ? '#3B82F6' : note.type === 'payment' ? '#10B981' : '#F59E0B'}
+                    />
+                  </View>
+                  <View style={styles.notificationContent}>
+                    <View style={styles.notificationHeader}>
+                      <Text style={styles.notificationTitle}>{note.title}</Text>
+                      <Text style={styles.notificationTime}>{note.time}</Text>
+                    </View>
+                    <Text style={styles.notificationBody}>{note.body}</Text>
+                  </View>
+                </Pressable>
               ))}
-            </div>
-          </div>
+            </View>
+          </View>
         )}
 
         {activeTab === 'wallet' && (
-          <div className="p-6 animate-in fade-in duration-500">
-            <h2 className="text-2xl font-black text-gray-800 dark:text-white mb-6 text-right">المحفظة</h2>
-            <div className="bg-[#E0AAFF] rounded-[2.5rem] p-8 text-white shadow-soft relative overflow-hidden mb-8">
-              <div className="relative z-10 text-right">
-                <p className="text-sm font-bold opacity-80 mb-1">الرصيد المتاح</p>
-                <h3 className="text-4xl font-black">241.50 <span className="text-lg">ر.س</span></h3>
-              </div>
-              <div className="absolute top-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mt-16 blur-2xl"></div>
-            </div>
-          </div>
+          <View style={styles.walletContainer}>
+            <Text style={styles.walletTitle}>المحفظة</Text>
+            <View style={styles.walletCard}>
+              <View style={styles.walletContent}>
+                <Text style={styles.walletLabel}>الرصيد المتاح</Text>
+                <Text style={styles.walletAmount}>241.50 <Text style={styles.walletCurrency}>ر.س</Text></Text>
+              </View>
+            </View>
+          </View>
         )}
 
         {activeTab === 'profile' && (
-          <div className="p-6 animate-in fade-in duration-500">
-            <div className="flex flex-col items-center mb-8">
-               <div className="w-32 h-32 rounded-[2.5rem] bg-[#E0AAFF] p-1 shadow-soft rotate-3 overflow-hidden mb-6">
-                  <img src="https://picsum.photos/seed/courier1/200/200" className="w-full h-full rounded-[2.3rem] object-cover border-4 border-white dark:border-gray-800" />
-               </div>
-               <h3 className="text-2xl font-black text-gray-800 dark:text-white">أحمد بن فهد</h3>
-               <div className="flex items-center gap-1.5 mt-2 bg-amber-50 dark:bg-amber-900/10 px-4 py-1.5 rounded-full border border-amber-100 dark:border-amber-900/20">
-                  <Star size={18} className="text-amber-400 fill-amber-400" />
-                  <span className="text-sm font-black text-amber-600 dark:text-amber-400">4.8 (120 تقييم)</span>
-               </div>
-            </div>
-          </div>
-        )}
-      </div>
+          <View style={styles.profileContainer}>
+            <View style={styles.profileAvatarContainer}>
+              <Image
+                source={{ uri: 'https://picsum.photos/seed/courier1/200/200' }}
+                style={styles.profileAvatar}
+              />
+            </View>
+            <Text style={[styles.profileName, { color: theme.textColor }]}>أحمد بن فهد</Text>
+            <View style={styles.ratingContainer}>
+              <Feather name="star" size={18} color="#F59E0B" />
+              <Text style={[styles.ratingText, { color: theme.textColor }]}>4.8 (120 تقييم)</Text>
+            </View>
 
-      {/* Bottom Nav - Absolute to stay inside the phone frame */}
-      <nav className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] bg-white dark:bg-gray-800 h-20 rounded-[2.5rem] shadow-2xl flex items-center justify-around px-8 border border-gray-50 dark:border-gray-700 z-50">
-        <button onClick={() => setActiveTab('available')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'available' || activeTab === 'active' ? 'text-[#E0AAFF] scale-110' : 'text-gray-400 dark:text-gray-300'}`}><Truck size={24} /><span className="text-[10px] font-bold">الرئيسية</span></button>
-        <button onClick={() => setActiveTab('wallet')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'wallet' ? 'text-[#E0AAFF] scale-110' : 'text-gray-400 dark:text-gray-300'}`}><DollarSign size={24} /><span className="text-[10px] font-bold">المحفظة</span></button>
-        <button onClick={() => setActiveTab('notifications')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'notifications' ? 'text-[#E0AAFF] scale-110' : 'text-gray-400 dark:text-gray-300'}`}><Bell size={24} /><span className="text-[10px] font-bold">التنبيهات</span></button>
-        <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'profile' ? 'text-[#E0AAFF] scale-110' : 'text-gray-400 dark:text-gray-300'}`}><User size={24} /><span className="text-[10px] font-bold">ملفي</span></button>
-      </nav>
-    </div>
+            <View style={styles.settingsSection}>
+              <Text style={[styles.sectionTitle, { color: theme.secondaryTextColor }]}>إعدادات الحساب</Text>
+
+              <View style={styles.menuItems}>
+                <Pressable onPress={toggleDarkMode} style={[styles.menuItem, { backgroundColor: theme.cardBackground, borderColor: theme.borderColor }]}>
+                  <View style={styles.menuItemContent}>
+                    <View style={[styles.menuIcon, { backgroundColor: isDarkMode ? '#374151' : '#F9FAFB' }]}>
+                      <Feather name={isDarkMode ? "sun" : "moon"} size={20} color="#9CA3AF" />
+                    </View>
+                    <Text style={[styles.menuLabel, { color: theme.textColor }]}>الوضع الداكن (Dark Mode)</Text>
+                  </View>
+                  <View style={[styles.toggle, isDarkMode && styles.toggleActive]}>
+                    <View style={[styles.toggleKnob, isDarkMode && styles.toggleKnobActive]} />
+                  </View>
+                </Pressable>
+
+                <Pressable style={[styles.menuItem, { backgroundColor: theme.cardBackground, borderColor: theme.borderColor }]}>
+                  <View style={styles.menuItemContent}>
+                    <View style={[styles.menuIcon, { backgroundColor: isDarkMode ? '#374151' : '#F9FAFB' }]}>
+                      <Feather name="help-circle" size={20} color="#9CA3AF" />
+                    </View>
+                    <Text style={[styles.menuLabel, { color: theme.textColor }]}>مركز المساعدة والدعم</Text>
+                  </View>
+                  <Feather name="chevron-left" size={18} color={theme.secondaryTextColor} />
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+      {/* Bottom Nav */}
+      <View style={styles.bottomNav}>
+        <Pressable onPress={() => setActiveTab('available')} style={styles.navItem}>
+          <View style={styles.navIcon}>
+            <Feather name="truck" size={18} color={activeTab === 'available' || activeTab === 'active' ? '#E0AAFF' : '#9CA3AF'} />
+          </View>
+          <Text style={[styles.navText, (activeTab === 'available' || activeTab === 'active') && styles.activeNavText]}>الرئيسية</Text>
+        </Pressable>
+        <Pressable onPress={() => setActiveTab('wallet')} style={styles.navItem}>
+          <View style={styles.navIcon}>
+            <Feather name="dollar-sign" size={18} color={activeTab === 'wallet' ? '#E0AAFF' : '#9CA3AF'} />
+          </View>
+          <Text style={[styles.navText, activeTab === 'wallet' && styles.activeNavText]}>المحفظة</Text>
+        </Pressable>
+        <Pressable onPress={() => setActiveTab('notifications')} style={styles.navItem}>
+          <View style={styles.navIcon}>
+            <Feather name="bell" size={18} color={activeTab === 'notifications' ? '#E0AAFF' : '#9CA3AF'} />
+          </View>
+          <Text style={[styles.navText, activeTab === 'notifications' && styles.activeNavText]}>التنبيهات</Text>
+        </Pressable>
+        <Pressable onPress={() => setActiveTab('profile')} style={styles.navItem}>
+          <View style={styles.navIcon}>
+            <Feather name="user" size={18} color={activeTab === 'profile' ? '#E0AAFF' : '#9CA3AF'} />
+          </View>
+          <Text style={[styles.navText, activeTab === 'profile' && styles.activeNavText]}>ملفي</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFC',
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    minHeight: 80, // Ensure minimum header height
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  truckIcon: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#E0AAFF',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  headerSubtitle: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  logoutButton: {
+    padding: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 12,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 120, // Adjusted for new bottom nav layout
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    gap: 16,
+    marginTop: Math.max(24, Dimensions.get('window').height * 0.03), // Dynamic top margin
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F9FAFB',
+  },
+  statLabel: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#E0AAFF',
+  },
+  currency: {
+    fontSize: 12,
+  },
+  tabsContainer: {
+    paddingHorizontal: 24,
+    marginTop: Math.max(24, Dimensions.get('window').height * 0.04), // Dynamic top margin
+  },
+  tabsBackground: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 28,
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    alignItems: 'center',
+  },
+  activeTab: {
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#9CA3AF',
+  },
+  activeTabText: {
+    color: '#E0AAFF',
+  },
+  bottomNav: {
+    backgroundColor: 'white',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#F9FAFB',
+  },
+  navItem: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  navIcon: {
+    padding: Dimensions.get('window').width * 0.015,
+    borderRadius: Dimensions.get('window').width * 0.03,
+  },
+  navText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#9CA3AF',
+  },
+  activeNavText: {
+    color: '#E0AAFF',
+  },
+  ordersContainer: {
+    paddingHorizontal: 24,
+    marginTop: Math.max(16, Dimensions.get('window').height * 0.02), // Dynamic top margin for orders
+    gap: 16,
+  },
+  orderCard: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F9FAFB',
+  },
+  orderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  orderLeft: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  packageIcon: {
+    width: 48,
+    height: 48,
+    backgroundColor: 'rgba(224, 170, 255, 0.1)',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orderTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  orderSubtitle: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  orderPrice: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#E0AAFF',
+  },
+  orderFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F9FAFB',
+  },
+  acceptButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 8,
+    backgroundColor: '#E0AAFF',
+    borderRadius: 16,
+  },
+  acceptButtonText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  activeOrderCard: {
+    backgroundColor: 'white',
+    padding: 24,
+    borderRadius: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(224, 170, 255, 0.1)',
+  },
+  activeOrderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  activeOrderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  activePackageIcon: {
+    width: 40,
+    height: 40,
+    backgroundColor: 'rgba(224, 170, 255, 0.1)',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeOrderTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1F2937',
+  },
+  activeOrderSubtitle: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  activeBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  activeBadgeText: {
+    fontSize: 9,
+    color: '#10B981',
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  progressSection: {
+    gap: 24,
+  },
+  progressTitle: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    textAlign: 'right',
+  },
+  progressContainer: {
+    paddingHorizontal: 16,
+    position: 'relative',
+  },
+  progressBar: {
+    position: 'absolute',
+    top: 20,
+    left: 32,
+    right: 32,
+    height: 2,
+    backgroundColor: '#F3F4F6',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#E0AAFF',
+  },
+  progressStep: {
+    alignItems: 'center',
+    gap: 8,
+    position: 'relative',
+    zIndex: 10,
+  },
+  stepIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeStepIcon: {
+    backgroundColor: '#E0AAFF',
+  },
+  stepText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  activeStepText: {
+    color: '#E0AAFF',
+  },
+  activeOrderFooter: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 24,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#F9FAFB',
+  },
+  mapButton: {
+    flex: 1,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(224, 170, 255, 0.1)',
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  mapButtonText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#E0AAFF',
+  },
+  chatButton: {
+    flex: 1,
+    paddingVertical: 12,
+    backgroundColor: '#E0AAFF',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatButtonText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    opacity: 0.4,
+  },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#9CA3AF',
+  },
+  notificationsContainer: {
+    padding: 24,
+  },
+  notificationsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  notificationsTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#1F2937',
+  },
+  newBadge: {
+    backgroundColor: 'rgba(224, 170, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  newBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#E0AAFF',
+    textTransform: 'uppercase',
+  },
+  notificationsList: {
+    gap: 16,
+  },
+  notificationItem: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F9FAFB',
+    flexDirection: 'row',
+    gap: 16,
+  },
+  notificationIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationContent: {
+    flex: 1,
+  },
+  notificationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  notificationTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  notificationTime: {
+    fontSize: 9,
+    color: '#9CA3AF',
+    fontWeight: 'bold',
+  },
+  notificationBody: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    lineHeight: 16,
+  },
+  walletContainer: {
+    padding: 24,
+  },
+  walletTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#1F2937',
+    textAlign: 'right',
+    marginBottom: 24,
+  },
+  walletCard: {
+    backgroundColor: '#E0AAFF',
+    borderRadius: 40,
+    padding: 32,
+    shadowColor: '#E0AAFF',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  walletContent: {
+    alignItems: 'flex-end',
+  },
+  walletLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+  },
+  walletAmount: {
+    fontSize: 36,
+    fontWeight: '900',
+    color: 'white',
+  },
+  walletCurrency: {
+    fontSize: 18,
+  },
+  profileContainer: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  profileAvatarContainer: {
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    backgroundColor: '#E0AAFF',
+    padding: 4,
+    shadowColor: '#E0AAFF',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+    marginBottom: 24,
+    transform: [{ rotate: '3deg' }],
+  },
+  profileAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: 'white',
+  },
+  profileName: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#1F2937',
+    marginBottom: 16,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  ratingText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#F59E0B',
+  },
+  settingsSection: {
+    width: '100%',
+    marginTop: 32,
+  },
+  sectionTitle: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    marginBottom: 16,
+    textAlign: 'right',
+  },
+  menuItems: {
+    gap: 12,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F9FAFB',
+  },
+  menuItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  menuIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  toggle: {
+    width: 48,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleActive: {
+    backgroundColor: '#E0AAFF',
+  },
+  toggleKnob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'white',
+    transform: [{ translateX: 0 }],
+  },
+  toggleKnobActive: {
+    transform: [{ translateX: 20 }],
+  },
+});

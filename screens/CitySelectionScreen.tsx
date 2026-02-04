@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -32,13 +33,14 @@ const CITIES = [
 ];
 
 export const CitySelectionScreen: React.FC<Props> = ({ onNext, onBack }) => {
+  const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState('');
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + screenHeight * 0.03 }]}>
         <Pressable onPress={onBack} style={styles.backButton}>
-          <Feather name="chevron-left" size={20} color="#9CA3AF" />
+          <Feather name="chevron-right" size={20} color="#9CA3AF" />
         </Pressable>
         <Text style={styles.title}>اختر مدينتك</Text>
         <View style={styles.spacer} />
@@ -85,8 +87,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: screenWidth * 0.06,
-    paddingTop: screenHeight * 0.03,
+    paddingHorizontal: Math.max(16, screenWidth * 0.04),
     paddingBottom: screenHeight * 0.04,
   },
   backButton: {

@@ -1,15 +1,28 @@
 
 import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Modal, TextInput, StyleSheet, Image } from 'react-native';
+import { View, Text, Pressable, ScrollView, Modal, TextInput, StyleSheet, Image, Dimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   onBack: () => void;
+  onLogout: () => void;
+  onNavigateHome: () => void;
+  onNavigateOrders: () => void;
+  onNavigateCourier: () => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
+  theme: {
+    backgroundColor: string;
+    textColor: string;
+    secondaryTextColor: string;
+    cardBackground: string;
+    borderColor: string;
+  };
 }
 
-export const ProfileScreen: React.FC<Props> = ({ onBack, isDarkMode, toggleDarkMode }) => {
+export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHome, onNavigateOrders, onNavigateCourier, isDarkMode, toggleDarkMode, theme }) => {
+  const insets = useSafeAreaInsets();
   const [showEditModal, setShowEditModal] = useState(false);
   const [name, setName] = useState('محمد العتيبي');
   const [email, setEmail] = useState('m.otaibi@example.com');
@@ -21,13 +34,10 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, isDarkMode, toggleDarkM
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Pressable onPress={onBack} style={styles.backButton}>
-          <Feather name="chevron-left" size={24} color="#9CA3AF" />
-        </Pressable>
-        <Text style={styles.title}>ملفي</Text>
-        <View style={styles.spacer} />
+    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top + 16, Dimensions.get('window').height * 0.05), backgroundColor: theme.cardBackground, borderBottomColor: theme.borderColor }]}>
+        <Text style={[styles.title, { color: theme.textColor }]}>ملفي</Text>
       </View>
 
       <View style={styles.profileSection}>
@@ -52,7 +62,7 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, isDarkMode, toggleDarkM
               <Text style={styles.walletAmount}>450.00 <Text style={styles.currency}>ر.س</Text></Text>
             </View>
             <View style={styles.walletIcon}>
-              <Feather name="wallet" size={28} color="rgba(255, 255, 255, 0.8)" />
+              <Feather name="credit-card" size={28} color="rgba(255, 255, 255, 0.8)" />
             </View>
           </View>
           <Pressable style={styles.chargeButton}>
@@ -66,41 +76,41 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, isDarkMode, toggleDarkM
 
         <View style={styles.menuItems}>
           {menuItems.map((item, idx) => (
-            <Pressable key={idx} onPress={item.action} style={styles.menuItem}>
+            <Pressable key={idx} onPress={item.action} style={[styles.menuItem, { backgroundColor: theme.cardBackground, borderColor: theme.borderColor }]}>
               <View style={styles.menuItemContent}>
-                <View style={styles.menuIcon}>
+                <View style={[styles.menuIcon, { backgroundColor: isDarkMode ? '#374151' : '#F9FAFB' }]}>
                   <Feather name={item.icon as any} size={20} color="#9CA3AF" />
                 </View>
-                <Text style={styles.menuLabel}>{item.label}</Text>
+                <Text style={[styles.menuLabel, { color: theme.textColor }]}>{item.label}</Text>
               </View>
-              <Feather name="chevron-left" size={18} color="#D1D5DB" />
+              <Feather name="chevron-left" size={18} color={theme.secondaryTextColor} />
             </Pressable>
           ))}
 
-          <Pressable onPress={toggleDarkMode} style={styles.menuItem}>
+          <Pressable onPress={toggleDarkMode} style={[styles.menuItem, { backgroundColor: theme.cardBackground, borderColor: theme.borderColor }]}>
             <View style={styles.menuItemContent}>
-              <View style={styles.menuIcon}>
+              <View style={[styles.menuIcon, { backgroundColor: isDarkMode ? '#374151' : '#F9FAFB' }]}>
                 <Feather name={isDarkMode ? "sun" : "moon"} size={20} color="#9CA3AF" />
               </View>
-              <Text style={styles.menuLabel}>الوضع الداكن (Dark Mode)</Text>
+              <Text style={[styles.menuLabel, { color: theme.textColor }]}>الوضع الداكن (Dark Mode)</Text>
             </View>
             <View style={[styles.toggle, isDarkMode && styles.toggleActive]}>
               <View style={[styles.toggleKnob, isDarkMode && styles.toggleKnobActive]} />
             </View>
           </Pressable>
 
-          <Pressable style={styles.menuItem}>
+          <Pressable style={[styles.menuItem, { backgroundColor: theme.cardBackground, borderColor: theme.borderColor }]}>
             <View style={styles.menuItemContent}>
-              <View style={styles.menuIcon}>
+              <View style={[styles.menuIcon, { backgroundColor: isDarkMode ? '#374151' : '#F9FAFB' }]}>
                 <Feather name="help-circle" size={20} color="#9CA3AF" />
               </View>
-              <Text style={styles.menuLabel}>مركز المساعدة والدعم</Text>
+              <Text style={[styles.menuLabel, { color: theme.textColor }]}>مركز المساعدة والدعم</Text>
             </View>
-            <Feather name="chevron-left" size={18} color="#D1D5DB" />
+            <Feather name="chevron-left" size={18} color={theme.secondaryTextColor} />
           </Pressable>
         </View>
 
-        <Pressable style={styles.logoutButton}>
+        <Pressable onPress={onLogout} style={styles.logoutButton}>
           <View style={styles.menuItemContent}>
             <View style={styles.logoutIcon}>
               <Feather name="log-out" size={20} color="#EF4444" />
@@ -155,7 +165,39 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, isDarkMode, toggleDarkM
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+
+      {/* Bottom Navigation */}
+      <View style={styles.bottomNav}>
+        <Pressable onPress={onNavigateHome} style={styles.navItem}>
+          <View style={styles.navIcon}>
+            <Feather name="star" size={18} color="#9CA3AF" />
+          </View>
+          <Text style={styles.navText}>الرئيسية</Text>
+        </Pressable>
+
+        <Pressable onPress={onNavigateOrders} style={styles.navItem}>
+          <View style={styles.navIcon}>
+            <Feather name="package" size={18} color="#9CA3AF" />
+          </View>
+          <Text style={styles.navText}>طلباتك</Text>
+        </Pressable>
+
+        <Pressable onPress={onNavigateCourier} style={styles.navItem}>
+          <View style={styles.navIcon}>
+            <Feather name="truck" size={18} color="#9CA3AF" />
+          </View>
+          <Text style={styles.navText}>المندوب</Text>
+        </Pressable>
+
+        <Pressable style={[styles.navItem, styles.activeNavItem]}>
+          <View style={[styles.navIcon, styles.activeNavIcon]}>
+            <Feather name="user" size={18} color="#E0AAFF" />
+          </View>
+          <Text style={[styles.navText, styles.activeNavText]}>ملفي</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 };
 
@@ -171,7 +213,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 24,
+    paddingHorizontal: 24,
     paddingBottom: 16,
   },
   backButton: {
@@ -456,5 +498,50 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     color: 'white',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 120,
+  },
+  bottomNav: {
+    backgroundColor: 'white',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#F9FAFB',
+  },
+  navItem: {
+    alignItems: 'center',
+    gap: Dimensions.get('window').height * 0.005,
+  },
+  activeNavItem: {
+    transform: [{ scale: 1.05 }],
+  },
+  navIcon: {
+    padding: Dimensions.get('window').width * 0.015,
+    borderRadius: Dimensions.get('window').width * 0.03,
+  },
+  activeNavIcon: {
+    backgroundColor: 'rgba(224, 170, 255, 0.1)',
+  },
+  navText: {
+    fontSize: Dimensions.get('window').width * 0.022,
+    fontWeight: 'bold',
+    color: '#9CA3AF',
+  },
+  activeNavText: {
+    color: '#E0AAFF',
   },
 });

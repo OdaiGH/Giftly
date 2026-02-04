@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, TextInput, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -11,13 +12,14 @@ interface Props {
 }
 
 export const BudgetScreen: React.FC<Props> = ({ onNext, onBack }) => {
+  const insets = useSafeAreaInsets();
   const [description, setDescription] = useState('');
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + screenHeight * 0.03 }]}>
       <View style={styles.header}>
         <Pressable onPress={onBack} style={styles.backButton}>
-          <Feather name="chevron-left" size={20} color="#9CA3AF" />
+          <Feather name="chevron-right" size={20} color="#9CA3AF" />
         </Pressable>
         <Text style={styles.title}>وصف الهدية</Text>
         <View style={styles.spacer} />
@@ -72,13 +74,13 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: screenWidth * 0.06, // 6% of screen width
-    paddingTop: screenHeight * 0.03,
     paddingBottom: screenHeight * 0.15,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: Math.max(16, screenWidth * 0.04),
     marginBottom: screenHeight * 0.04,
   },
   backButton: {

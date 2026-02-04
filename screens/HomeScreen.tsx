@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -13,12 +14,13 @@ interface Props {
 }
 
 export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCourier, onStartOrder, onShowInvoice }) => {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'home' | 'orders'>('home');
 
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top + 16, screenHeight * 0.05) }]}>
         <View style={styles.headerContent}>
           <View style={styles.userInfo}>
             <View style={styles.avatar}>
@@ -162,7 +164,6 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: screenWidth * 0.05,
-    paddingTop: screenHeight * 0.02,
     paddingBottom: screenHeight * 0.015,
   },
   headerContent: {
@@ -414,23 +415,19 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   bottomNav: {
-    position: 'absolute',
-    bottom: screenHeight * 0.025,
-    left: '50%',
-    transform: [{ translateX: -(screenWidth * 0.45) }],
-    width: screenWidth * 0.9,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: screenWidth * 0.08,
+    backgroundColor: 'white',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: screenWidth * 0.06,
-    paddingVertical: screenHeight * 0.015,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
     borderWidth: 1,
     borderColor: '#F9FAFB',
   },

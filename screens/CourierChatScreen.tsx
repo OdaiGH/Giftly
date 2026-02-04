@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, Image, Modal } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Message {
   id: string;
@@ -29,9 +30,11 @@ const COURIER_GALLERY = [
 ];
 
 export const CourierChatScreen: React.FC<Props> = ({ userRole, onBack, onFinishOrder, onShowInvoice }) => {
+  const insets = useSafeAreaInsets();
   const [showCourierProfile, setShowCourierProfile] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [showCancelOptions, setShowCancelOptions] = useState(false);
 
   const [invoiceDesc, setInvoiceDesc] = useState('');
   const [giftPrice, setGiftPrice] = useState('');
@@ -95,10 +98,10 @@ export const CourierChatScreen: React.FC<Props> = ({ userRole, onBack, onFinishO
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top + 16, 24) }]}>
         <View style={styles.headerContent}>
           <Pressable onPress={onBack} style={styles.backButton}>
-            <Feather name="chevron-left" size={24} color="#9CA3AF" />
+            <Feather name="chevron-right" size={24} color="#9CA3AF" />
           </Pressable>
           <Pressable onPress={() => setShowCourierProfile(true)} style={styles.userInfo}>
             <View style={styles.avatar}>
@@ -115,7 +118,7 @@ export const CourierChatScreen: React.FC<Props> = ({ userRole, onBack, onFinishO
             </View>
           </Pressable>
         </View>
-        <Pressable style={styles.cancelButton}>
+        <Pressable onPress={() => setShowCancelOptions(true)} style={styles.cancelButton}>
           <Text style={styles.cancelText}>إلغاء الطلب</Text>
         </Pressable>
       </View>
@@ -375,6 +378,71 @@ export const CourierChatScreen: React.FC<Props> = ({ userRole, onBack, onFinishO
           </View>
         </View>
       </Modal>
+
+      {/* Cancel Options Modal */}
+      <Modal
+        visible={showCancelOptions}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowCancelOptions(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.cancelModal}>
+            <View style={styles.cancelModalHeader}>
+              <Text style={styles.cancelModalTitle}>إلغاء الطلب</Text>
+              <Pressable onPress={() => setShowCancelOptions(false)} style={styles.closeButton}>
+                <Feather name="x" size={20} color="#9CA3AF" />
+              </Pressable>
+            </View>
+
+            <View style={styles.cancelOptions}>
+              <Pressable style={styles.cancelOption}>
+                <View style={styles.cancelOptionIcon}>
+                  <Feather name="message-circle" size={20} color="#EF4444" />
+                </View>
+                <View style={styles.cancelOptionContent}>
+                  <Text style={styles.cancelOptionTitle}>تواصل مع المندوب</Text>
+                  <Text style={styles.cancelOptionSubtitle}>تحدث مع المندوب لحل المشكلة</Text>
+                </View>
+              </Pressable>
+
+              <Pressable style={styles.cancelOption}>
+                <View style={styles.cancelOptionIcon}>
+                  <Feather name="headphones" size={20} color="#F59E0B" />
+                </View>
+                <View style={styles.cancelOptionContent}>
+                  <Text style={styles.cancelOptionTitle}>الدعم الفني</Text>
+                  <Text style={styles.cancelOptionSubtitle}>تواصل مع فريق الدعم</Text>
+                </View>
+              </Pressable>
+
+              <Pressable style={styles.cancelOption}>
+                <View style={styles.cancelOptionIcon}>
+                  <Feather name="refresh-ccw" size={20} color="#10B981" />
+                </View>
+                <View style={styles.cancelOptionContent}>
+                  <Text style={styles.cancelOptionTitle}>إعادة جدولة</Text>
+                  <Text style={styles.cancelOptionSubtitle}>غير موعد التوصيل</Text>
+                </View>
+              </Pressable>
+
+              <Pressable style={[styles.cancelOption, styles.cancelFinal]}>
+                <View style={styles.cancelOptionIcon}>
+                  <Feather name="x-circle" size={20} color="#DC2626" />
+                </View>
+                <View style={styles.cancelOptionContent}>
+                  <Text style={styles.cancelOptionTitle}>إلغاء نهائي</Text>
+                  <Text style={styles.cancelOptionSubtitle}>إلغاء الطلب بشكل نهائي</Text>
+                </View>
+              </Pressable>
+            </View>
+
+            <Pressable onPress={() => setShowCancelOptions(false)} style={styles.cancelKeepButton}>
+              <Text style={styles.cancelKeepText}>الاحتفاظ بالطلب</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -388,7 +456,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 24,
+    paddingHorizontal: 24,
     paddingBottom: 16,
     backgroundColor: 'white',
     borderBottomWidth: 1,
@@ -909,6 +977,76 @@ const styles = StyleSheet.create({
   sendInvoiceText: {
     fontSize: 18,
     fontWeight: '900',
+    color: 'white',
+  },
+  cancelModal: {
+    backgroundColor: 'white',
+    borderRadius: 32,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+  },
+  cancelModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  cancelModalTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1F2937',
+  },
+  cancelOptions: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  cancelOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  cancelFinal: {
+    backgroundColor: 'rgba(220, 38, 38, 0.05)',
+    borderColor: 'rgba(220, 38, 38, 0.2)',
+  },
+  cancelOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  cancelOptionContent: {
+    flex: 1,
+  },
+  cancelOptionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  cancelOptionSubtitle: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  cancelKeepButton: {
+    width: '100%',
+    height: 48,
+    backgroundColor: '#E0AAFF',
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelKeepText: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: 'white',
   },
 });

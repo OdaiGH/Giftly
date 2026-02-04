@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 interface Props {
@@ -19,7 +19,8 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
       {/* Branded Logo Section */}
       <View style={styles.logoSection}>
         <View style={styles.logoContainer}>
@@ -27,7 +28,7 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
             <View style={styles.glossyOverlay} />
             <View style={styles.ribbonVertical} />
             <View style={styles.ribbonHorizontal} />
-            <Feather name="sparkles" size={40} color="white" />
+            <Feather name="star" size={40} color="white" />
             <View style={styles.sparkle} />
           </View>
         </View>
@@ -59,9 +60,16 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
             </View>
           </View>
 
-          <Pressable onPress={() => setStep('OTP')} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>إرسال رمز التحقق</Text>
-          </Pressable>
+            <Pressable onPress={() => {
+              if (phone === '123') {
+                // Special case for courier login
+                onNext('123');
+              } else {
+                setStep('OTP');
+              }
+            }} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>إرسال رمز التحقق</Text>
+            </Pressable>
         </View>
       ) : (
         <View style={styles.formSection}>
@@ -98,7 +106,8 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
       <View style={styles.footer}>
         <Text style={styles.footerText}>Hadiyati • Secure Marketplace</Text>
       </View>
-    </View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 };
 

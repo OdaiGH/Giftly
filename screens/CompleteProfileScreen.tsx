@@ -2,21 +2,23 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   onNext: () => void;
 }
 
 export const CompleteProfileScreen: React.FC<Props> = ({ onNext }) => {
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [birthDate, setBirthDate] = useState('');
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 32 }]}>
       <View style={styles.header}>
         <View style={styles.iconContainer}>
-          <Feather name="sparkles" size={32} color="#E0AAFF" />
+          <Feather name="star" size={32} color="#E0AAFF" />
         </View>
         <Text style={styles.title}>أكمل بياناتك</Text>
         <Text style={styles.subtitle}>خطوة بسيطة لبدء رحلة الهدايا</Text>
@@ -89,7 +91,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFC',
   },
   content: {
-    padding: 32,
+    paddingHorizontal: 32,
     paddingBottom: 100,
   },
   header: {
@@ -111,6 +113,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1F2937',
     textAlign: 'center',
+    fontFamily: 'System',
   },
   subtitle: {
     fontSize: 14,
@@ -118,6 +121,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 4,
     textAlign: 'center',
+    fontFamily: 'System',
   },
   form: {
     flex: 1,

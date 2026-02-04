@@ -63,7 +63,7 @@ export const SearchingExpertScreen: React.FC<Props> = ({ onComplete }) => {
 
       <View style={styles.infoBox}>
         <View style={styles.infoIcon}>
-          <Feather name="sparkles" size={16} color="#10B981" />
+          <Feather name="star" size={16} color="#10B981" />
         </View>
         <Text style={styles.infoText}>
           سيقوم الخبير بالتواصل معك فوراً عبر الدردشة لمناقشة تفاصيل الهدية وتنسيقها.
