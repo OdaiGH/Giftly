@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../App';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -16,6 +17,7 @@ interface Props {
 export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCourier, onStartOrder, onShowInvoice }) => {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'home' | 'orders'>('home');
+  const { userData } = useAuth();
 
   return (
     <View style={styles.container}>
@@ -28,7 +30,7 @@ export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCouri
             </View>
             <View>
               <Text style={styles.greeting}>أهلاً بك 👋</Text>
-              <Text style={styles.userName}>محمد العتيبي</Text>
+              <Text style={styles.userName}>{userData?.name || 'مستخدم'}</Text>
             </View>
           </View>
           <Pressable style={styles.notificationButton}>

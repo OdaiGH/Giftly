@@ -1,21 +1,87 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { sendOTP, verifyOTP } from '../api';
 
 interface Props {
-  onNext: (phone: string) => void;
+  onNext: (result: { phone: string, token?: string, needsProfile?: boolean, otp?: string }) => void;
 }
 
 export const LoginScreen: React.FC<Props> = ({ onNext }) => {
   const [phone, setPhone] = useState('');
   const [step, setStep] = useState<'PHONE' | 'OTP'>('PHONE');
-  const [otp, setOtp] = useState(['', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [error, setError] = useState('');
+  const [timer, setTimer] = useState(90);
+  const [canResend, setCanResend] = useState(false);
+  const [sentOtp, setSentOtp] = useState('');
+
+  const otpRefs = useRef<TextInput[]>([]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (step === 'OTP' && timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => {
+          if (prev <= 1) {
+            setCanResend(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [step, timer]);
 
   const handleOtpChange = (value: string, index: number) => {
+    // Only allow numeric digits
+    const numericValue = value.replace(/[^0-9]/g, '');
+    if (numericValue.length > 1) return; // Only allow single digit
+
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = numericValue;
     setOtp(newOtp);
+
+    // Auto-focus next input if we have a value and it's not the last field
+    if (numericValue && index < 5) {
+      setTimeout(() => {
+        otpRefs.current[index + 1]?.focus();
+      }, 10);
+    }
+
+    // Clear error when user starts typing
+    if (error) setError('');
+  };
+
+  const handleOtpKeyPress = (key: string, index: number) => {
+    // Handle Enter key to move to next field
+    if (key === 'Enter' && index < 5) {
+      setTimeout(() => {
+        otpRefs.current[index + 1]?.focus();
+      }, 10);
+    }
+    // Handle backspace - if current field is empty and we're not at first field, move left
+    else if (key === 'Backspace' && index > 0 && otp[index] === '') {
+      setTimeout(() => {
+        otpRefs.current[index - 1]?.focus();
+      }, 10);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    try {
+      const response = await sendOTP(phone);
+      setSentOtp(response.otp);
+      setTimer(90);
+      setCanResend(false);
+      setError('');
+      setOtp(['', '', '', '', '', '']);
+      otpRefs.current[0]?.focus();
+    } catch (error) {
+      setError('Failed to resend OTP');
+    }
   };
 
   return (
@@ -60,12 +126,21 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
             </View>
           </View>
 
-            <Pressable onPress={() => {
+            <Pressable onPress={async () => {
               if (phone === '123') {
                 // Special case for courier login
-                onNext('123');
+                onNext({ phone: '123' });
               } else {
-                setStep('OTP');
+                try {
+                  const response = await sendOTP(phone);
+                  setSentOtp(response.otp);
+                  setStep('OTP');
+                  setTimer(90);
+                  setCanResend(false);
+                  setError('');
+                } catch (error: any) {
+                  setError(error.message || 'Failed to send OTP');
+                }
               }
             }} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>إرسال رمز التحقق</Text>
@@ -76,25 +151,67 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
           <View style={styles.formHeader}>
             <Text style={styles.formTitle}>رمز التحقق</Text>
             <Text style={styles.otpSubtitle}>تم إرسال الرمز إلى {phone}</Text>
+            {timer > 0 ? (
+              <Text style={styles.timerText}>
+                {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}
+              </Text>
+            ) : null}
           </View>
+
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.otpContainer}>
             {otp.map((digit, index) => (
               <TextInput
                 key={index}
+                ref={(ref) => {
+                  if (ref) otpRefs.current[index] = ref;
+                }}
                 style={styles.otpInput}
                 value={digit}
                 onChangeText={(value) => handleOtpChange(value, index)}
+                onKeyPress={({ nativeEvent }) => handleOtpKeyPress(nativeEvent.key, index)}
                 keyboardType="numeric"
                 maxLength={1}
+                caretHidden={true}
+                selectTextOnFocus={true}
                 placeholderTextColor="#9CA3AF"
               />
             ))}
           </View>
 
-          <Pressable onPress={() => onNext(phone)} style={styles.primaryButton}>
+          <Text style={styles.debugText}>Sent OTP: {sentOtp}</Text>
+
+
+          <Pressable onPress={async () => {
+            const otpCode = otp.join('');
+            if (otpCode.length !== 6) {
+              setError('Please enter complete OTP');
+              return;
+            }
+            try {
+              const response = await verifyOTP({ phone_number: phone, otp: otpCode });
+              onNext({ phone, token: response.access_token });
+            } catch (error: any) {
+              if (error.message === 'Registration details required for new user') {
+                onNext({ phone, needsProfile: true, otp: otpCode });
+              } else {
+                setError(error.message || 'Failed to verify OTP');
+              }
+            }
+          }} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>دخول</Text>
           </Pressable>
+
+          {canResend && (
+            <Pressable onPress={handleResendOTP} style={styles.resendButton}>
+              <Text style={styles.resendButtonText}>إعادة إرسال الرمز</Text>
+            </Pressable>
+          )}
 
           <Pressable onPress={() => setStep('PHONE')} style={styles.changeNumberButton}>
             <Text style={styles.changeNumberText}>تغيير الرقم</Text>
@@ -270,7 +387,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   otpContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     gap: 12,
   },
@@ -285,11 +402,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '900',
     color: '#374151',
+    fontFamily: 'monospace',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    writingDirection: 'ltr',
   },
   changeNumberButton: {
     flexDirection: 'row',
@@ -313,5 +432,40 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 2,
+  },
+  errorContainer: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  timerText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#E0AAFF',
+  },
+  resendButton: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  resendButtonText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#E0AAFF',
+    textTransform: 'uppercase',
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    fontFamily: 'monospace',
   },
 });

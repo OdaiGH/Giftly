@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Modal, TextInput, StyleSheet, Image, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Pressable, ScrollView, Modal, TextInput, StyleSheet, Image, Dimensions, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../App';
 
 interface Props {
   onBack: () => void;
@@ -23,9 +24,21 @@ interface Props {
 
 export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHome, onNavigateOrders, onNavigateCourier, isDarkMode, toggleDarkMode, theme }) => {
   const insets = useSafeAreaInsets();
+  const { userData, token } = useAuth();
   const [showEditModal, setShowEditModal] = useState(false);
-  const [name, setName] = useState('محمد العتيبي');
-  const [email, setEmail] = useState('m.otaibi@example.com');
+  const [name, setName] = useState(userData?.name || '');
+  const [email, setEmail] = useState(userData?.email || '');
+  const [birthDate, setBirthDate] = useState(userData?.date_of_birth ? new Date(userData.date_of_birth) : new Date());
+
+  useEffect(() => {
+    if (userData) {
+      setName(userData.name);
+      setEmail(userData.email);
+      if (userData.date_of_birth) {
+        setBirthDate(new Date(userData.date_of_birth));
+      }
+    }
+  }, [userData]);
 
   const menuItems = [
     { icon: 'user', label: 'تعديل البيانات الشخصية', action: () => setShowEditModal(true) },
@@ -157,7 +170,43 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHom
                 />
               </View>
 
-              <Pressable onPress={() => setShowEditModal(false)} style={styles.saveButton}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>تاريخ الميلاد</Text>
+                <TextInput
+                  style={styles.input}
+                  value={birthDate.toLocaleDateString('en-CA')}
+                  editable={false}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+
+              <Pressable onPress={async () => {
+                if (!name.trim() || !email.trim()) {
+                  Alert.alert('خطأ', 'يرجى ملء جميع الحقول بشكل صحيح');
+                  return;
+                }
+
+                try {
+                  const { updateUserDetails } = await import('../api');
+                  const updatedUser = await updateUserDetails(token!, {
+                    name: name.trim(),
+                    email: email.trim(),
+                    date_of_birth: birthDate.toISOString().split('T')[0],
+                  });
+
+                  // Update local state
+                  setName(updatedUser.name);
+                  setEmail(updatedUser.email);
+                  if (updatedUser.date_of_birth) {
+                    setBirthDate(new Date(updatedUser.date_of_birth));
+                  }
+
+                  Alert.alert('نجح', 'تم حفظ التعديلات بنجاح');
+                  setShowEditModal(false);
+                } catch (error: any) {
+                  Alert.alert('خطأ', error.message || 'فشل في حفظ التعديلات');
+                }
+              }} style={styles.saveButton}>
                 <Feather name="save" size={20} color="white" />
                 <Text style={styles.saveButtonText}>حفظ التعديلات</Text>
               </Pressable>

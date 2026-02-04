@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, createContext, useContext } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { WelcomeScreen } from './screens/WelcomeScreen';
@@ -16,9 +16,79 @@ type Screen = 'welcome' | 'login' | 'profile' | 'home' | 'budget' | 'citySelecti
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-const App: React.FC = () => {
+// Auth Context
+interface UserData {
+  id: number;
+  phone_number: string;
+  email: string;
+  name: string;
+  date_of_birth: string | null;
+  is_verified: boolean;
+}
+
+interface AuthContextType {
+  token: string | null;
+  phone: string | null;
+  userData: UserData | null;
+  login: (token: string, phone: string) => void;
+  logout: () => void;
+  fetchUserData: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+// Auth Provider Component
+const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [token, setToken] = useState<string | null>(null);
+  const [phone, setPhone] = useState<string | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
+
+  const login = (newToken: string, newPhone: string) => {
+    setToken(newToken);
+    setPhone(newPhone);
+    // Fetch user data when logging in
+    fetchUserData(newToken);
+  };
+
+  const logout = () => {
+    setToken(null);
+    setPhone(null);
+    setUserData(null);
+  };
+
+  const fetchUserData = async (authToken?: string) => {
+    const currentToken = authToken || token;
+    if (!currentToken) return;
+
+    try {
+      const { getUserDetails } = await import('./api');
+      const data = await getUserDetails(currentToken);
+      setUserData(data);
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ token, phone, userData, login, logout, fetchUserData }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+const AppContent: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [authData, setAuthData] = useState<{ phone: string; otp?: string; token?: string } | null>(null);
+  const { login } = useAuth();
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
@@ -38,15 +108,26 @@ const App: React.FC = () => {
       case 'welcome':
         return <WelcomeScreen onStart={() => setCurrentScreen('login')} />;
       case 'login':
-        return <LoginScreen onNext={(phone) => {
-          if (phone === '123') {
+        return <LoginScreen onNext={(result) => {
+          if (result.phone === '123') {
             setCurrentScreen('courierLogin');
-          } else {
+          } else if (result.token) {
+            login(result.token, result.phone);
+            setCurrentScreen('home');
+          } else if (result.needsProfile) {
+            setAuthData({ phone: result.phone, otp: result.otp });
             setCurrentScreen('profile');
           }
         }} />;
       case 'profile':
-        return <CompleteProfileScreen onNext={() => setCurrentScreen('home')} />;
+        return <CompleteProfileScreen
+          phone={authData?.phone || ''}
+          otp={authData?.otp || ''}
+          onNext={(token) => {
+            login(token, authData?.phone || '');
+            setCurrentScreen('home');
+          }}
+        />;
       case 'home':
         return (
           <HomeScreen
@@ -94,6 +175,14 @@ const App: React.FC = () => {
         {renderScreen()}
       </View>
     </SafeAreaProvider>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 };
 
