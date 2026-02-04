@@ -60,62 +60,62 @@ This project is private and proprietary.
 
 ---
 
-# ,JA*DJ
+# جيفتلي
 
-,JA*DJ GH EF5) *H5JD *1(7 'D9ED'! ('D3'9JF D./E'* *H5JD 'D71H/ (3D'3).
+جيفتلي هو منصة توصيل تربط العملاء بالساعين لخدمات توصيل الطرود بسلاسة.
 
-## #96'! 'DA1JB
+## أعضاء الفريق
 
-- **9(/'D1-EF 'D,1J3J** - E$33
-- **EGF/ 'D-3JFJ** - E$33 E4'1C
-- **9/J 'D:'E/J** - E/J1 'D*CFHDH,J'
+- **عبدالرحمن الجريسي** - مؤسس
+- **مهند الحسيني** - مؤسس مشارك
+- **عدي الغامدي** - مدير التكنولوجيا
 
-## GJCD 'DE41H9
+## هيكل المشروع
 
-- `frontend/` - *7(JB 'DG'*A 'DE-EHD React Native
-- `backend/` - API 'D.'/E H'D./E'*
+- `frontend/` - تطبيق الهاتف المحمول React Native
+- `backend/` - API الخادم والخدمات
 
-## 'D(/!
+## البدء
 
-### 'DE*7D('* 'D#3'3J)
+### المتطلبات الأساسية
 
 - Node.js
-- npm #H yarn
+- npm أو yarn
 
-### 'D*+(J*
+### التثبيت
 
-1. '3*F3'. 'DE3*H/9:
+1. استنساخ المستودع:
    ```bash
    git clone https://github.com/OdaiGH/Giftly.git
    cd Giftly
    ```
 
-2. *+(J* 'D*(9J'* DDH',G) 'D#E'EJ):
+2. تثبيت التبعيات للواجهة الأمامية:
    ```bash
    cd frontend
    npm install
    ```
 
-3. %9/'/ E*:J1'* 'D(J&):
-   - F3. `.env.local` H*CHJF EA'*J- API 'D.'5) (C
+3. إعداد متغيرات البيئة:
+   - نسخ `.env.local` وتكوين مفاتيح API الخاصة بك
 
-4. *4:JD .'/E 'D*7HJ1:
+4. تشغيل خادم التطوير:
    ```bash
    npm run dev
    ```
 
-## 'DEJ2'*
+## الميزات
 
-- '.*J'1 /H1 'D9EJD H'D3'9J
-- 'D/1/4) AJ 'DHB* 'DA9DJ (JF 'D9ED'! H'D3'9JF
-- **(9 'D7D('* H%F4'! 'DAH'*J1
-- %/'1) 'DEDA 'D4.5J
-- '.*J'1 'DEJ2'FJ) H'DE/JF) DD*H5JD
+- اختيار دور العميل والساعي
+- الدردشة في الوقت الفعلي بين العملاء والساعين
+- تتبع الطلبات وإنشاء الفواتير
+- إدارة الملف الشخصي
+- اختيار الميزانية والمدينة للتوصيل
 
-## 'DE3'GE)
+## المساهمة
 
-J1,I B1'!) 'DEG'E 'D*BFJ) AJ `technical-tasks.md` D#HDHJ'* 'D*7HJ1 'D-'DJ).
+يرجى قراءة المهام التقنية في `technical-tasks.md` لأولويات التطوير الحالية.
 
-## 'D*1.J5
+## الترخيص
 
-G0' 'DE41H9 .'5 HEEDHC.
+هذا المشروع خاص ومملوك.
