@@ -111,12 +111,12 @@ const AppContent: React.FC = () => {
         return <LoginScreen onNext={(result) => {
           if (result.phone === '123') {
             setCurrentScreen('courierLogin');
-          } else if (result.token) {
-            login(result.token, result.phone);
-            setCurrentScreen('home');
           } else if (result.needsProfile) {
             setAuthData({ phone: result.phone, otp: result.otp });
             setCurrentScreen('profile');
+          } else if (result.token) {
+            login(result.token, result.phone);
+            setCurrentScreen('home');
           }
         }} />;
       case 'profile':

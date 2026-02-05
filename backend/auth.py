@@ -5,24 +5,29 @@ import string
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-from models import User
+from models import User, JWTToken
 from config import settings
 from database import get_db
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import logging
 
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-
-ALGORITHM = "HS256"
-
-logger = logging.getLogger(__name__)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password):
     return pwd_context.hash(password)
+
+def authenticate_user(db: Session, phone_number: str, password: str):
+    user = get_user_by_phone(db, phone_number)
+    if not user:
+        return False
+    if not verify_password(password, user.admin_password_hash):
+        return False
+    return user
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -31,38 +36,171 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     else:
         expire = datetime.utcnow() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm="HS256")
     return encoded_jwt
+
+def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(days=7)  # Refresh token lasts 7 days
+    to_encode.update({"exp": expire, "type": "refresh"})
+    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm="HS256")
+    return encoded_jwt
+
+def create_jwt_tokens(db: Session, user: User):
+    """Create and store JWT tokens for a user"""
+    # Create tokens
+    access_token_expires = datetime.utcnow() + timedelta(minutes=30)
+    refresh_token_expires = datetime.utcnow() + timedelta(days=7)
+
+    access_token = create_access_token(
+        data={"sub": user.phone_number},
+        expires_delta=timedelta(minutes=30)
+    )
+    refresh_token = create_refresh_token(
+        data={"sub": user.phone_number},
+        expires_delta=timedelta(days=7)
+    )
+
+    # Store in database
+    jwt_token = JWTToken(
+        user_id=user.id,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        access_token_expires_at=access_token_expires,
+        refresh_token_expires_at=refresh_token_expires,
+        is_revoked=False
+    )
+    db.add(jwt_token)
+    db.commit()
+    db.refresh(jwt_token)
+
+    return access_token, refresh_token
+
+def revoke_user_tokens(db: Session, user_id: int):
+    """Revoke all tokens for a user"""
+    db.query(JWTToken).filter(
+        JWTToken.user_id == user_id,
+        JWTToken.is_revoked == False
+    ).update({"is_revoked": True})
+    db.commit()
+
+def revoke_token_by_access_token(db: Session, access_token: str):
+    """Revoke a specific token by access token"""
+    db.query(JWTToken).filter(
+        JWTToken.access_token == access_token
+    ).update({"is_revoked": True})
+    db.commit()
+
+def revoke_token_by_refresh_token(db: Session, refresh_token: str):
+    """Revoke a specific token by refresh token"""
+    db.query(JWTToken).filter(
+        JWTToken.refresh_token == refresh_token
+    ).update({"is_revoked": True})
+    db.commit()
 
 def generate_otp():
     return ''.join(random.choices(string.digits, k=6))
 
-def authenticate_user(db: Session, phone_number: str):
-    user = db.query(User).filter(User.phone_number == phone_number).first()
-    if not user:
-        return False
-    return user
-
 def get_user_by_phone(db: Session, phone_number: str):
     return db.query(User).filter(User.phone_number == phone_number).first()
 
-security = HTTPBearer()
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+def get_current_user(token: str = Depends(security), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(credentials.credentials, settings.secret_key, algorithms=[ALGORITHM])
+        payload = jwt.decode(token.credentials, settings.secret_key, algorithms=["HS256"])
         phone_number: str = payload.get("sub")
         if phone_number is None:
             raise credentials_exception
+        token_type: str = payload.get("type")
+        is_temp: bool = payload.get("temp", False)
+        if token_type == "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token not allowed for this endpoint",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
     except JWTError:
         raise credentials_exception
+
+    # For temporary tokens (used during profile completion), skip database check
+    if not is_temp:
+        # Check if token exists in database and is not revoked
+        jwt_token = db.query(JWTToken).filter(
+            JWTToken.access_token == token.credentials,
+            JWTToken.is_revoked == False
+        ).first()
+
+        if not jwt_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked or does not exist",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Check if access token is expired
+        if datetime.utcnow() > jwt_token.access_token_expires_at:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Access token expired",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     user = get_user_by_phone(db, phone_number)
     if user is None:
         raise credentials_exception
     return user
+
+def get_user_from_refresh_token(token: str, db: Session):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate refresh token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        phone_number: str = payload.get("sub")
+        if phone_number is None:
+            raise credentials_exception
+        token_type: str = payload.get("type")
+        if token_type != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except JWTError:
+        raise credentials_exception
+
+    # Check if refresh token exists in database and is not revoked
+    jwt_token = db.query(JWTToken).filter(
+        JWTToken.refresh_token == token,
+        JWTToken.is_revoked == False
+    ).first()
+
+    if not jwt_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has been revoked or does not exist",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Check if refresh token is expired
+    if datetime.utcnow() > jwt_token.refresh_token_expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = get_user_by_phone(db, phone_number)
+    if user is None:
+        raise credentials_exception
+    return user
+

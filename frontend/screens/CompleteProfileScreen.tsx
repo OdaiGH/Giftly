@@ -7,18 +7,20 @@ import {
   TextInput,
   StyleSheet,
   Platform,
+  Modal,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { updateUserDetails } from '../api';
+import { completeProfile } from '../api';
 
 interface Props {
-  onNext: () => void;
-  token: string;
+  phone: string;
+  otp: string;
+  onNext: (token: string) => void;
 }
 
-export const CompleteProfileScreen: React.FC<Props> = ({ onNext, token }) => {
+export const CompleteProfileScreen: React.FC<Props> = ({ phone, otp, onNext }) => {
   const insets = useSafeAreaInsets();
 
   const [name, setName] = useState('');
@@ -27,7 +29,7 @@ export const CompleteProfileScreen: React.FC<Props> = ({ onNext, token }) => {
 
   const [showPicker, setShowPicker] = useState(false);
   const [loading, setLoading] = useState(false);
-
+const [tempDate, setTempDate] = useState<Date>(birthDate || new Date());
   const [errors, setErrors] = useState<{
     name?: string;
     email?: string;
@@ -54,6 +56,13 @@ export const CompleteProfileScreen: React.FC<Props> = ({ onNext, token }) => {
     if (!birthDate) {
       newErrors.birthDate = 'تاريخ الميلاد مطلوب';
     }
+    if (birthDate && birthDate > new Date()) {
+      newErrors.birthDate = 'تاريخ الميلاد غير صالح';
+    }
+    if (birthDate && new Date().getFullYear() - birthDate.getFullYear() < 16) {
+      newErrors.birthDate = 'يجب أن يكون عمرك 16 سنة على الأقل';
+    }
+
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -67,13 +76,14 @@ export const CompleteProfileScreen: React.FC<Props> = ({ onNext, token }) => {
       setLoading(true);
       setErrors({});
 
-      await updateUserDetails(token, {
+      const response = await completeProfile({
+        phone_number: phone,
         name: name.trim(),
         email: email.trim(),
-        birthDate: birthDate!.toISOString().split('T')[0],
+        date_of_birth: birthDate!.toISOString().split('T')[0],
       });
 
-      onNext();
+      onNext(response.access_token);
     } catch (error: any) {
       if (error.message === 'Email is already registered') {
         setErrors({ email: 'البريد الإلكتروني مستخدم بالفعل' });
@@ -138,44 +148,93 @@ export const CompleteProfileScreen: React.FC<Props> = ({ onNext, token }) => {
         </View>
         {errors.email && <Text style={styles.error}>{errors.email}</Text>}
       </View>
+{/* Birthdate */}
+<Pressable style={styles.inputGroup} onPress={() => setShowPicker(true)}>
+  <Text style={styles.label}>تاريخ الميلاد</Text>
+  <View
+    style={[
+      styles.inputContainer,
+      styles.input,
+      errors.birthDate && styles.inputError,
+    ]}
+  >
+    <Text style={{ color: birthDate ? '#1F2937' : '#9CA3AF' }}>
+      {birthDate
+        ? birthDate.toLocaleDateString('en-US')
+        : 'اختر تاريخ الميلاد'}
+    </Text>
+    <Feather name="calendar" size={18} color="#D1D5DB" style={styles.icon} />
+  </View>
+  {errors.birthDate && (
+    <Text style={styles.error}>{errors.birthDate}</Text>
+  )}
+</Pressable>
+{/* Date Picker */}
+{/* Date Picker */}
+<Modal
+  visible={showPicker}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setShowPicker(false)}
+>
+  <View
+    style={{
+      flex: 1,
+      justifyContent: 'center',
+      backgroundColor: 'rgba(0,0,0,0.4)',
+    }}
+  >
+    <View
+      style={{
+        backgroundColor: '#fff',
+        marginHorizontal: 20,
+        borderRadius: 12,
+        paddingTop: 8,
+      }}
+    >
+      <DateTimePicker
+        value={tempDate}
+        mode="date"
+        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+        maximumDate={new Date()}
+        accentColor="#000000"
+        textColor="#000000"
+        onChange={(_, date) => {
+          if (date) setTempDate(date); // only update temp date
+        }}
+      />
 
-      {/* Birthdate */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>تاريخ الميلاد</Text>
-        <Pressable
-          style={[styles.input, errors.birthDate && styles.inputError]}
-          onPress={() => setShowPicker(true)}
-        >
-          <Text style={{ color: birthDate ? '#1F2937' : '#9CA3AF' }}>
-            {birthDate
-              ? birthDate.toLocaleDateString('ar-SA')
-              : 'اختر تاريخ الميلاد'}
+      {/* Buttons */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderTopWidth: 1,
+          borderColor: '#E5E7EB',
+        }}
+      >
+        <Pressable onPress={() => setShowPicker(false)}>
+          <Text style={{ color: '#6B7280', fontSize: 16 }}>
+            إلغاء
           </Text>
-          <Feather name="calendar" size={18} color="#D1D5DB" style={styles.icon} />
         </Pressable>
-        {errors.birthDate && (
-          <Text style={styles.error}>{errors.birthDate}</Text>
-        )}
-      </View>
 
-      {/* DateTimePicker Popup */}
-      {showPicker && (
-        <DateTimePicker
-          value={birthDate || new Date()}
-          mode="date"
-          display="default"          // popup style
-          maximumDate={new Date()}   // max today
-          textColor="black"          // iOS text
-          accentColor="black"        // iOS accent
-          onChange={(_, date) => {
+        <Pressable
+          onPress={() => {
+            setBirthDate(tempDate); // just set the date
             setShowPicker(false);
-            if (date) {
-              setBirthDate(date);
-              setErrors((e) => ({ ...e, birthDate: undefined }));
-            }
           }}
-        />
-      )}
+        >
+          <Text style={{ color: '#000000', fontSize: 16, fontWeight: '600' }}>
+            تأكيد
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  </View>
+</Modal>
 
       {/* API global error */}
       {errors.api && <Text style={styles.apiError}>{errors.api}</Text>}
@@ -242,4 +301,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: { color: '#FFF', fontSize: 18, fontWeight: '900' },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  datePickerContainer: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  datePickerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  closeButton: {
+    padding: 8,
+  },
 });

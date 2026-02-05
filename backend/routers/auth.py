@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta
+import re
+from datetime import datetime, timedelta, date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User
-from schemas import SendOTP, OTPVerify, Token, UpdateUserProfile
-from auth import authenticate_user, create_access_token, generate_otp, get_user_by_phone, get_current_user
+from schemas import SendOTP, OTPVerify, Token, UpdateUserProfile, RefreshTokenRequest
+from auth import authenticate_user, create_access_token, create_refresh_token, create_jwt_tokens, revoke_user_tokens, generate_otp, get_user_by_phone, get_current_user, get_user_from_refresh_token
 from config import settings
 
 router = APIRouter()
@@ -57,36 +58,32 @@ def verify_otp(otp_data: OTPVerify, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"Invalid OTP. Expected {user.otp}, got {otp_data.otp}")
 
     user.otp = None  # Clear OTP
-    
+
     if user.is_verified:
-        # Existing user, login
-        pass
+        # Existing user with complete profile, login
+        access_token, refresh_token = create_jwt_tokens(db, user)
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "needs_profile": False
+        }
     else:
-        # New user, register
-        if not otp_data.email or not otp_data.name or not otp_data.date_of_birth:
-            raise HTTPException(status_code=400, detail="Registration details required for new user")
-        
-        # Check email uniqueness
-        existing_email_user = db.query(User).filter(User.email == otp_data.email, User.id != user.id).first()
-        if existing_email_user:
-            raise HTTPException(status_code=400, detail="Email is already registered")
-        
-        user.email = otp_data.email
-        user.name = otp_data.name
-        user.date_of_birth = otp_data.date_of_birth
-        user.is_verified = True
-        user.role = 'Customer'
-    
-    db.commit()
-    
-    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
-    access_token = create_access_token(
-        data={"sub": user.phone_number}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+        # New user or user without complete profile, needs to complete profile
+        # Create temporary token for profile completion
+        temp_token = create_access_token(
+            data={"sub": user.phone_number, "temp": True},
+            expires_delta=timedelta(minutes=30)
+        )
+        return {
+            "access_token": temp_token,
+            "refresh_token": "",
+            "token_type": "bearer",
+            "needs_profile": True
+        }
 
 @router.get("/me", response_model=dict)
-def get_current_user(current_user: User = Depends(get_current_user)):
+def read_current_user(current_user: User = Depends(get_current_user)):
     return {
         "id": current_user.id,
         "phone_number": current_user.phone_number,
@@ -99,19 +96,45 @@ def get_current_user(current_user: User = Depends(get_current_user)):
 
 @router.put("/me", response_model=dict)
 def update_current_user(user_update: UpdateUserProfile, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Update user fields
-    if user_update.name is not None:
-        current_user.name = user_update.name
-    
-    if user_update.email is not None:
+    errors = {}
+
+    # Validate name
+    if user_update.name is None or user_update.name.strip() == "":
+        errors["name"] = "'D'3E E7DH("
+    elif len(user_update.name.strip()) < 2:
+        errors["name"] = "'D'3E J,( #F JCHF 2 #-1A 9DI 'D#BD"
+    elif not re.match(r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z\s]+$', user_update.name.strip()):
+        errors["name"] = "'D'3E J,( #F J-*HJ 9DI #-1A AB7"
+
+    # Validate email
+    if user_update.email is None or user_update.email.strip() == "":
+        errors["email"] = "'D(1J/ 'D%DC*1HFJ E7DH("
+    elif not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', user_update.email.strip()):
+        errors["email"] = "5J:) 'D(1J/ 'D%DC*1HFJ :J1 5-J-)"
+    else:
         # Check email uniqueness
-        existing_email_user = db.query(User).filter(User.email == user_update.email, User.id != current_user.id).first()
+        existing_email_user = db.query(User).filter(User.email == user_update.email.strip(), User.id != current_user.id).first()
         if existing_email_user:
-            raise HTTPException(status_code=400, detail="Email is already registered")
-        current_user.email = user_update.email
-    
-    if user_update.date_of_birth is not None:
-        current_user.date_of_birth = user_update.date_of_birth
+            errors["email"] = "'D(1J/ 'D%DC*1HFJ E3*./E ('DA9D"
+
+    # Validate date_of_birth
+    if user_update.date_of_birth is None:
+        errors["date_of_birth"] = "*'1J. 'DEJD'/ E7DH("
+    else:
+        today = date.today()
+        age = today.year - user_update.date_of_birth.year - ((today.month, today.day) < (user_update.date_of_birth.month, user_update.date_of_birth.day))
+        if age < 16:
+            errors["date_of_birth"] = "J,( #F JCHF 9E1C 16 3F) 9DI 'D#BD"
+        elif user_update.date_of_birth > today:
+            errors["date_of_birth"] = "*'1J. 'DEJD'/ D' JECF #F JCHF AJ 'DE3*B(D"
+
+    if errors:
+        raise HTTPException(status_code=400, detail=errors)
+
+    # Update user fields
+    current_user.name = user_update.name.strip()
+    current_user.email = user_update.email.strip()
+    current_user.date_of_birth = user_update.date_of_birth
 
     db.commit()
     db.refresh(current_user)
@@ -124,3 +147,73 @@ def update_current_user(user_update: UpdateUserProfile, current_user: User = Dep
         "date_of_birth": current_user.date_of_birth.isoformat() if current_user.date_of_birth else None,
         "is_verified": current_user.is_verified
     }
+
+@router.post("/refresh", response_model=Token)
+def refresh_access_token(refresh_request: RefreshTokenRequest, db: Session = Depends(get_db)):
+    user = get_user_from_refresh_token(refresh_request.refresh_token, db)
+
+    # Revoke the old refresh token
+    from auth import revoke_token_by_refresh_token
+    revoke_token_by_refresh_token(db, refresh_request.refresh_token)
+
+    # Create new tokens
+    access_token, refresh_token = create_jwt_tokens(db, user)
+
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+@router.post("/complete-profile", response_model=Token)
+def complete_profile(profile_data: dict, db: Session = Depends(get_db)):
+    """Complete profile for new users after OTP verification"""
+    # Extract data from request
+    phone_number = profile_data.get("phone_number")
+    name = profile_data.get("name")
+    email = profile_data.get("email")
+    date_of_birth_str = profile_data.get("date_of_birth")
+
+    if not all([phone_number, name, email, date_of_birth_str]):
+        raise HTTPException(status_code=400, detail="All profile fields are required")
+
+    from datetime import datetime
+    try:
+        date_of_birth = datetime.fromisoformat(date_of_birth_str).date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    user = get_user_by_phone(db, phone_number)
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    # Check if user already has complete profile
+    if user.is_verified:
+        raise HTTPException(status_code=400, detail="Profile already completed")
+
+    # Check email uniqueness
+    existing_email_user = db.query(User).filter(User.email == email, User.id != user.id).first()
+    if existing_email_user:
+        raise HTTPException(status_code=400, detail="Email is already registered")
+
+    # Update user profile
+    user.name = name
+    user.email = email
+    user.date_of_birth = date_of_birth
+    user.is_verified = True
+    user.role = 'Customer'
+
+    db.commit()
+    db.refresh(user)
+
+    # Create and store permanent tokens
+    access_token, refresh_token = create_jwt_tokens(db, user)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "needs_profile": False
+    }
+
+@router.post("/logout")
+def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Logout user by revoking all their tokens"""
+    revoke_user_tokens(db, current_user.id)
+    return {"message": "Successfully logged out"}

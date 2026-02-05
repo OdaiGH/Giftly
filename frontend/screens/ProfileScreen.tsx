@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, Modal, TextInput, StyleSheet, Image, Dimensions, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, Modal, TextInput, StyleSheet, Image, Dimensions, Alert, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../App';
 
 interface Props {
@@ -24,11 +25,21 @@ interface Props {
 
 export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHome, onNavigateOrders, onNavigateCourier, isDarkMode, toggleDarkMode, theme }) => {
   const insets = useSafeAreaInsets();
-  const { userData, token } = useAuth();
+  const { userData, token, fetchUserData } = useAuth();
   const [showEditModal, setShowEditModal] = useState(false);
   const [name, setName] = useState(userData?.name || '');
   const [email, setEmail] = useState(userData?.email || '');
   const [birthDate, setBirthDate] = useState(userData?.date_of_birth ? new Date(userData.date_of_birth) : new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const [tempDate, setTempDate] = useState<Date>(birthDate || new Date());
+  const [showPicker, setShowPicker] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+    date_of_birth?: string;
+  }>({});
 
   useEffect(() => {
     if (userData) {
@@ -39,6 +50,30 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHom
       }
     }
   }, [userData]);
+
+  /* ---------------- Validation ---------------- */
+  const validateForm = () => {
+    const newErrors: typeof errors = {};
+
+    if (!name.trim()) {
+      newErrors.name = 'الاسم مطلوب';
+    } else if (name.trim().length < 5) {
+      newErrors.name = 'الاسم يجب أن يكون 5 أحرف على الأقل';
+    }
+
+    if (!email.trim()) {
+      newErrors.email = 'البريد الإلكتروني مطلوب';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = 'صيغة البريد الإلكتروني غير صحيحة';
+    }
+
+    if (!birthDate) {
+      newErrors.date_of_birth = 'تاريخ الميلاد مطلوب';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const menuItems = [
     { icon: 'user', label: 'تعديل البيانات الشخصية', action: () => setShowEditModal(true) },
@@ -152,39 +187,125 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHom
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>الاسم بالكامل</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, errors.name && styles.inputError]}
                   value={name}
-                  onChangeText={setName}
+                  onChangeText={(text) => {
+                    setName(text);
+                    setErrors((e) => ({ ...e, name: undefined }));
+                  }}
                   placeholderTextColor="#9CA3AF"
                 />
+                {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>البريد الإلكتروني</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, errors.email && styles.inputError]}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    setErrors((e) => ({ ...e, email: undefined }));
+                  }}
                   placeholderTextColor="#9CA3AF"
                   textAlign="left"
                 />
+                {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
               </View>
 
+              {/* Birthdate */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>تاريخ الميلاد</Text>
-                <TextInput
-                  style={styles.input}
-                  value={birthDate.toLocaleDateString('en-CA')}
-                  editable={false}
-                  placeholderTextColor="#9CA3AF"
-                />
+                <Text style={styles.label}>تاريخ الميلاد</Text>
+                <Pressable
+                  style={[styles.inputContainer, styles.input, errors.date_of_birth && styles.inputError]}
+                  onPress={() => setShowPicker(true)}
+                >
+                  <Text style={{ color: birthDate ? '#1F2937' : '#9CA3AF' }}>
+                    {birthDate
+                      ? birthDate.toLocaleDateString('en-US')
+                      : 'اختر تاريخ الميلاد'}
+                  </Text>
+                  <Feather name="calendar" size={18} color="#D1D5DB" style={styles.icon} />
+                </Pressable>
+                {errors.date_of_birth && (
+                  <Text style={styles.error}>{errors.date_of_birth}</Text>
+                )}
               </View>
+<Modal
+  visible={showPicker}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setShowPicker(false)}
+>
+  <View
+    style={{
+      flex: 1,
+      justifyContent: 'center',
+      backgroundColor: 'rgba(0,0,0,0.4)',
+    }}
+  >
+    <View
+      style={{
+        backgroundColor: '#fff',
+        marginHorizontal: 20,
+        borderRadius: 12,
+        paddingTop: 8,
+      }}
+    >
+      <DateTimePicker
+        value={tempDate}
+        mode="date"
+        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+        maximumDate={new Date()}
+        accentColor="#000000"
+        textColor="#000000"
+        onChange={(_, date) => {
+          if (date) setTempDate(date); // only update temp date
+        }}
+      />
+
+      {/* Buttons */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderTopWidth: 1,
+          borderColor: '#E5E7EB',
+        }}
+      >
+        <Pressable onPress={() => setShowPicker(false)}>
+          <Text style={{ color: '#6B7280', fontSize: 16 }}>
+            إلغاء
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            setBirthDate(tempDate); // just set the date
+            setShowPicker(false);
+          }}
+        >
+          <Text style={{ color: '#000000', fontSize: 16, fontWeight: '600' }}>
+            تأكيد
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  </View>
+</Modal>
+
+              {successMessage && (
+                <View style={styles.successMessage}>
+                  <Feather name="check-circle" size={20} color="#10B981" />
+                  <Text style={styles.successText}>{successMessage}</Text>
+                </View>
+              )}
 
               <Pressable onPress={async () => {
-                if (!name.trim() || !email.trim()) {
-                  Alert.alert('خطأ', 'يرجى ملء جميع الحقول بشكل صحيح');
-                  return;
-                }
+                // Validate form first
+                if (!validateForm()) return;
 
                 try {
                   const { updateUserDetails } = await import('../api');
@@ -194,17 +315,21 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHom
                     date_of_birth: birthDate.toISOString().split('T')[0],
                   });
 
-                  // Update local state
-                  setName(updatedUser.name);
-                  setEmail(updatedUser.email);
-                  if (updatedUser.date_of_birth) {
-                    setBirthDate(new Date(updatedUser.date_of_birth));
-                  }
+                  // Refresh user data from server
+                  await fetchUserData();
 
-                  Alert.alert('نجح', 'تم حفظ التعديلات بنجاح');
-                  setShowEditModal(false);
+                  setSuccessMessage('تم حفظ التعديلات بنجاح');
+                  setTimeout(() => {
+                    setSuccessMessage('');
+                    setShowEditModal(false);
+                  }, 2000);
                 } catch (error: any) {
-                  Alert.alert('خطأ', error.message || 'فشل في حفظ التعديلات');
+                  // Handle field-specific errors
+                  if (typeof error === 'object' && error !== null) {
+                    setErrors(error);
+                  } else {
+                    Alert.alert('خطأ', error.message || 'فشل في حفظ التعديلات');
+                  }
                 }
               }} style={styles.saveButton}>
                 <Feather name="save" size={20} color="white" />
@@ -528,6 +653,34 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1F2937',
   },
+  inputError: {
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  successMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#D1FAE5',
+    borderWidth: 1,
+    borderColor: '#10B981',
+    borderRadius: 12,
+    padding: 16,
+  },
+  successText: {
+    fontSize: 14,
+    color: '#065F46',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   saveButton: {
     width: '100%',
     height: 64,
@@ -592,5 +745,33 @@ const styles = StyleSheet.create({
   },
   activeNavText: {
     color: '#E0AAFF',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  datePickerContainer: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  datePickerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  closeButton: {
+    padding: 8,
   },
 });

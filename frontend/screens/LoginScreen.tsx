@@ -12,6 +12,7 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
   const [phone, setPhone] = useState('');
   const [step, setStep] = useState<'PHONE' | 'OTP'>('PHONE');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [phoneError, setPhoneError] = useState('');
   const [error, setError] = useState('');
   const [timer, setTimer] = useState(90);
   const [canResend, setCanResend] = useState(false);
@@ -70,6 +71,28 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
     }
   };
 
+  const validatePhone = (ph: string): string => {
+    if (!ph || ph.trim() === '') {
+      return 'رقم الجوال مطلوب';
+    }
+
+    const clean = ph.replace(/[^0-9]/g, '');
+
+    if (clean.startsWith('05')) {
+      if (clean.length !== 10) {
+        return 'الرقم غير صحيح';
+      }
+    } else if (clean.startsWith('5')) {
+      if (clean.length !== 9) {
+        return 'الرقم غير صحيح';
+      }
+    } else {
+      return 'الرقم غير صحيح';
+    }
+
+    return '';
+  };
+
   const handleResendOTP = async () => {
     try {
       const response = await sendOTP(phone);
@@ -114,8 +137,12 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
               style={styles.phoneInput}
               placeholder="5xxxxxxxx"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(text) => {
+                setPhone(text);
+                if (phoneError) setPhoneError('');
+              }}
               keyboardType="phone-pad"
+              maxLength={10}
               placeholderTextColor="#9CA3AF"
             />
             <View style={styles.phoneIcon}>
@@ -125,12 +152,24 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
               <Text style={styles.countryCodeText}>+966</Text>
             </View>
           </View>
+          {phoneError ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{phoneError}</Text>
+            </View>
+          ) : null}
 
             <Pressable onPress={async () => {
               if (phone === '123') {
                 // Special case for courier login
                 onNext({ phone: '123' });
               } else {
+                // Validate phone number
+                const validationError = validatePhone(phone);
+                if (validationError) {
+                  setPhoneError(validationError);
+                  return;
+                }
+
                 try {
                   const response = await sendOTP(phone);
                   setSentOtp(response.otp);
@@ -138,6 +177,7 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
                   setTimer(90);
                   setCanResend(false);
                   setError('');
+                  setPhoneError(''); // Clear any previous phone errors
                 } catch (error: any) {
                   setError(error.message || 'Failed to send OTP');
                 }
@@ -187,23 +227,29 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
           <Text style={styles.debugText}>Sent OTP: {sentOtp}</Text>
 
 
-          <Pressable onPress={async () => {
-            const otpCode = otp.join('');
-            if (otpCode.length !== 6) {
-              setError('Please enter complete OTP');
-              return;
-            }
-            try {
-              const response = await verifyOTP({ phone_number: phone, otp: otpCode });
-              onNext({ phone, token: response.access_token });
-            } catch (error: any) {
-              if (error.message === 'Registration details required for new user') {
-                onNext({ phone, needsProfile: true, otp: otpCode });
-              } else {
-                setError(error.message || 'Failed to verify OTP');
+            <Pressable onPress={async () => {
+              const otpString = otp.join('');
+              if (otpString.length !== 6) {
+                setError('يرجى إدخال رمز التحقق المكون من 6 أرقام');
+                return;
               }
-            }
-          }} style={styles.primaryButton}>
+
+              try {
+                const response = await verifyOTP({
+                  phone_number: phone,
+                  otp: otpString
+                });
+
+                // Success - proceed to next screen based on profile completion status
+                onNext({
+                  phone,
+                  token: response.access_token,
+                  needsProfile: response.needs_profile
+                });
+              } catch (error: any) {
+                setError(error.message || 'فشل في التحقق من رمز التحقق');
+              }
+            }} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>دخول</Text>
           </Pressable>
 

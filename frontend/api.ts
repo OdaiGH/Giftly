@@ -14,7 +14,9 @@ export interface OTPVerifyRequest {
 
 export interface TokenResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
+  needs_profile: boolean;
 }
 
 export const sendOTP = async (phoneNumber: string): Promise<{message: string, otp: string}> => {
@@ -113,7 +115,87 @@ export const updateUserDetails = async (token: string, data: UpdateUserDetails):
   });
 
   if (!response.ok) {
-    let errorMessage = 'Failed to update user details';
+    try {
+      const error = await response.json();
+      if (error.detail && typeof error.detail === 'object') {
+        // Field-specific errors
+        throw error.detail;
+      } else {
+        // Generic error
+        throw new Error(error.detail || 'Failed to update user details');
+      }
+    } catch (parseError) {
+      throw new Error(response.statusText || 'Failed to update user details');
+    }
+  }
+
+  return response.json();
+};
+
+export const refreshAccessToken = async (refreshToken: string): Promise<TokenResponse> => {
+  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to refresh token';
+    try {
+      const error = await response.json();
+      errorMessage = error.detail || errorMessage;
+    } catch (e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+};
+
+export const logout = async (token: string): Promise<{message: string}> => {
+  const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to logout';
+    try {
+      const error = await response.json();
+      errorMessage = error.detail || errorMessage;
+    } catch (e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+};
+
+export interface CompleteProfileRequest {
+  phone_number: string;
+  name: string;
+  email: string;
+  date_of_birth: string;
+}
+
+export const completeProfile = async (data: CompleteProfileRequest): Promise<TokenResponse> => {
+  const response = await fetch(`${API_BASE_URL}/auth/complete-profile`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to complete profile';
     try {
       const error = await response.json();
       errorMessage = error.detail || errorMessage;
