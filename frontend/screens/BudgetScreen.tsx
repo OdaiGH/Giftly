@@ -57,6 +57,18 @@ export const BudgetScreen: React.FC<Props> = ({ onNext, onBack }) => {
       </View>
 
       <View style={styles.mainContent}>
+        {/* Delivery Date Picker */}
+        <View style={styles.datePickerContainer}>
+          <Text style={styles.datePickerLabel}>تاريخ التوصيل</Text>
+          <Pressable onPress={() => setShowDatePicker(true)} style={[styles.datePickerButton, dateError ? styles.datePickerError : null]}>
+            <Text style={[styles.datePickerText, !deliveryDate && styles.datePickerPlaceholder]}>
+              { deliveryDate ? formatArabicDate(deliveryDate) : 'اختر تاريخ التوصيل'}
+            </Text>
+            <Feather name="calendar" size={20} color={dateError ? "#EF4444" : "#E0AAFF"} />
+          </Pressable>
+          {dateError ? <Text style={styles.errorText}>{dateError}</Text> : null}
+        </View>
+
         <View style={styles.instruction}>
           <Feather name="star" size={18} color="#E0AAFF" />
           <Text style={styles.instructionText}>اكتب وصف الهدية المخصصة المناسبة لك</Text>
@@ -82,108 +94,97 @@ export const BudgetScreen: React.FC<Props> = ({ onNext, onBack }) => {
             <Feather name="message-circle" size={14} color="#3B82F6" />
           </View>
           <Text style={styles.infoText}>
-            إذا ماتعرف وش الهدية، لا تقلق! اترك الوصف فارغاً وسيقوم مندوبنا بترتيبها وتنسيقها معك خطوة بخطوة.
+            اذا ماتعرف وش الهديه لاتشيل هم اترك الوصف وحدد تاريخ تسليم الهديه وخل المندوب يضبطك .
           </Text>
         </View>
         </View>
 
-        {/* Delivery Date Picker */}
-        <View style={styles.datePickerContainer}>
-          <Text style={styles.datePickerLabel}>تاريخ التوصيل</Text>
-          <Pressable onPress={() => setShowDatePicker(true)} style={[styles.datePickerButton, dateError ? styles.datePickerError : null]}>
-            <Text style={[styles.datePickerText, !deliveryDate && styles.datePickerPlaceholder]}>
-              { deliveryDate ? formatArabicDate(deliveryDate) : 'اختر تاريخ التوصيل'}
-            </Text>
-            <Feather name="calendar" size={20} color={dateError ? "#EF4444" : "#E0AAFF"} />
-          </Pressable>
-          {dateError ? <Text style={styles.errorText}>{dateError}</Text> : null}
-        </View>
-<Modal
-  visible={showDatePicker}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setShowDatePicker(false)}
->
-  <View
-    style={{
-      flex: 1,
-      justifyContent: 'center',
-      backgroundColor: 'rgba(0,0,0,0.4)',
-    }}
-  >
-    <View
-      style={{
-        backgroundColor: '#fff',
-        marginHorizontal: 20,
-        borderRadius: 12,
-        paddingTop: 8,
-      }}
-    >
-      <DateTimePicker
-        value={tempDate}
-        mode="date"
-        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-        minimumDate={(() => {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          return today;
-        })()}
-        maximumDate={(() => {
-          const maxDate = new Date();
-          maxDate.setFullYear(maxDate.getFullYear() + 1);
-          return maxDate;
-        })()}
-        locale="en-US"
-        accentColor="#000000"
-        textColor="#000000"
-        onChange={(_, date) => {
-          if (date) setTempDate(date); // only update temp date
-        }}
-      />
-
-      {/* Buttons */}
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          borderTopWidth: 1,
-          borderColor: '#E5E7EB',
-        }}
-      >
-        <Pressable onPress={() => setShowDatePicker(false)}>
-          <Text style={{ color: '#6B7280', fontSize: 16 }}>
-            إلغاء
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => {
-            setDeliveryDate(tempDate); // just set the date
-            setDateError(''); // Clear error when date is selected
-            setShowDatePicker(false);
-          }}
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDatePicker(false)}
         >
-          <Text style={{ color: '#000000', fontSize: 16, fontWeight: '600' }}>
-            تأكيد
-          </Text>
-        </Pressable>
-      </View>
-    </View>
-  </View>
-</Modal>
+          <View
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0,0,0,0.4)',
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: '#fff',
+                marginHorizontal: 20,
+                borderRadius: 12,
+                paddingTop: 8,
+              }}
+            >
+              <DateTimePicker
+                value={tempDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                minimumDate={(() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return today;
+                })()}
+                maximumDate={(() => {
+                  const maxDate = new Date();
+                  maxDate.setFullYear(maxDate.getFullYear() + 1);
+                  return maxDate;
+                })()}
+                locale="en-US"
+                accentColor="#000000"
+                textColor="#000000"
+                onChange={(_, date) => {
+                  if (date) setTempDate(date); // only update temp dateit
+                }}
+              />
+
+              {/* Buttons */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  borderTopWidth: 1,
+                  borderColor: '#E5E7EB',
+                }}
+              >
+                <Pressable onPress={() => setShowDatePicker(false)}>
+                  <Text style={{ color: '#6B7280', fontSize: 16 }}>
+                    إلغاء
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    setDeliveryDate(tempDate); // just set the date
+                    setDateError(''); // Clear error when date is selected
+                    setShowDatePicker(false);
+                  }}
+                >
+                  <Text style={{ color: '#000000', fontSize: 16, fontWeight: '600' }}>
+                    تأكيد
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
 
-      <View style={styles.buttonContainer}>
-        <Pressable onPress={handleNext} style={styles.button}>
-          <Text style={styles.buttonText}>
-            {description.trim() ? 'المتابعة لاختيار المدينة' : 'تخطي والترتيب مع المندوب'}
-          </Text>
-        </Pressable>
-      </View>
-    </ScrollView>
-  );
+        <View style={styles.buttonContainer}>
+          <Pressable onPress={handleNext} style={styles.button}>
+            <Text style={styles.buttonText}>
+              {description.trim() ? 'المتابعة لاختيار المدينة' : 'خلّ المندوب يضبطك'}
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    );
 };
 
 const styles = StyleSheet.create({
@@ -216,6 +217,7 @@ const styles = StyleSheet.create({
     fontSize: screenWidth * 0.05, // Responsive font size
     fontWeight: 'bold',
     color: '#1F2937',
+    textAlign: 'right',
   },
   spacer: {
     width: screenWidth * 0.1,
@@ -235,6 +237,7 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     flex: 1,
     lineHeight: screenWidth * 0.06,
+    textAlign: 'right',
   },
   textAreaContainer: {
     position: 'relative',
@@ -242,7 +245,7 @@ const styles = StyleSheet.create({
   },
   textArea: {
     width: '100%',
-    height: screenHeight * 0.25, // 25% of screen height
+    height: screenHeight * 0.15, // 15% of screen height
     backgroundColor: 'white',
     borderWidth: 2,
     borderColor: '#F9FAFB',
@@ -272,6 +275,7 @@ const styles = StyleSheet.create({
     gap: screenWidth * 0.03,
     borderWidth: 1,
     borderColor: 'rgba(219, 234, 254, 1)',
+    minHeight: screenHeight * 0.1,
   },
   infoIcon: {
     width: screenWidth * 0.08,
@@ -287,6 +291,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     flex: 1,
     lineHeight: screenWidth * 0.035,
+    textAlign: 'right',
   },
   buttonContainer: {
     paddingTop: screenHeight * 0.03,
@@ -308,7 +313,7 @@ const styles = StyleSheet.create({
     fontSize: screenWidth * 0.045,
     fontWeight: '900',
     color: 'white',
-    textAlign: 'center',
+    textAlign: 'right',
   },
   datePickerContainer: {
     marginBottom: screenHeight * 0.03,

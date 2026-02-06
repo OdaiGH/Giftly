@@ -9,7 +9,7 @@ import { createOrder } from '../api';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface Props {
-  onNext: () => void;
+  onNext: (orderId: string) => void;
   onBack: () => void;
   orderData?: { description?: string; deliveryDate?: Date };
 }
@@ -42,6 +42,11 @@ export const CitySelectionScreen: React.FC<Props> = ({ onNext, onBack, orderData
   const { token } = useAuth();
 
   const handleConfirm = async () => {
+    console.log('CitySelectionScreen: Starting order creation');
+    console.log('CitySelectionScreen: selected =', selected);
+    console.log('CitySelectionScreen: orderData =', orderData);
+    console.log('CitySelectionScreen: token =', token ? 'present' : 'missing');
+
     if (!selected || !orderData?.deliveryDate || !token) {
       Alert.alert('خطأ', 'يرجى اختيار المدينة');
       return;
@@ -49,16 +54,21 @@ export const CitySelectionScreen: React.FC<Props> = ({ onNext, onBack, orderData
 
     setLoading(true);
     try {
+      console.log('CitySelectionScreen: Calling createOrder API');
       const order = await createOrder(token, {
         description: orderData?.description || '',
         city_id: parseInt(selected),
         delivery_date: orderData.deliveryDate.toISOString(),
       });
-      // Proceed to next screen
-      onNext();
+      console.log('CitySelectionScreen: Order created successfully:', order);
+      console.log('CitySelectionScreen: Order ID =', order.order_id);
+
+      // Proceed to next screen with order ID
+      console.log('CitySelectionScreen: Calling onNext with orderId =', order.order_id);
+      onNext(order.order_id);
     } catch (error) {
+      console.error('CitySelectionScreen: Error creating order:', error);
       Alert.alert('خطأ', 'فشل في إنشاء الطلب');
-      console.error(error);
     } finally {
       setLoading(false);
     }

@@ -34,7 +34,9 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHom
 
   const [tempDate, setTempDate] = useState<Date>(birthDate || new Date());
   const [showPicker, setShowPicker] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+  const [showErrorOverlay, setShowErrorOverlay] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [errors, setErrors] = useState<{
     name?: string;
     email?: string;
@@ -59,6 +61,8 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHom
       newErrors.name = 'الاسم مطلوب';
     } else if (name.trim().length < 5) {
       newErrors.name = 'الاسم يجب أن يكون 5 أحرف على الأقل';
+    } else if (!/^[a-zA-Z\u0600-\u06FF][a-zA-Z\u0600-\u06FF0-9\s]*$/.test(name.trim())) {
+      newErrors.name = 'الاسم يجب أن يبدأ بحرف ويمكن أن يحتوي على أرقام ومسافات';
     }
 
     if (!email.trim()) {
@@ -215,20 +219,20 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHom
 
               {/* Birthdate */}
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>تاريخ الميلاد</Text>
+                <Text style={styles.inputLabel}>تاريخ الميلاد</Text>
                 <Pressable
-                  style={[styles.inputContainer, styles.input, errors.date_of_birth && styles.inputError]}
+                  style={[styles.input, styles.dateInput, errors.date_of_birth && styles.inputError]}
                   onPress={() => setShowPicker(true)}
                 >
-                  <Text style={{ color: birthDate ? '#1F2937' : '#9CA3AF' }}>
+                  <Text style={[styles.dateText, { color: birthDate ? '#1F2937' : '#9CA3AF', textAlign: 'center' }]}>
                     {birthDate
                       ? birthDate.toLocaleDateString('en-US')
                       : 'اختر تاريخ الميلاد'}
                   </Text>
-                  <Feather name="calendar" size={18} color="#D1D5DB" style={styles.icon} />
+                  <Feather name="calendar" size={18} color="#D1D5DB" style={styles.dateIcon} />
                 </Pressable>
                 {errors.date_of_birth && (
-                  <Text style={styles.error}>{errors.date_of_birth}</Text>
+                  <Text style={styles.errorText}>{errors.date_of_birth}</Text>
                 )}
               </View>
 <Modal
@@ -296,12 +300,7 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHom
   </View>
 </Modal>
 
-              {successMessage && (
-                <View style={styles.successMessage}>
-                  <Feather name="check-circle" size={20} color="#10B981" />
-                  <Text style={styles.successText}>{successMessage}</Text>
-                </View>
-              )}
+
 
               <Pressable onPress={async () => {
                 // Validate form first
@@ -318,17 +317,23 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHom
                   // Refresh user data from server
                   await fetchUserData();
 
-                  setSuccessMessage('تم حفظ التعديلات بنجاح');
+                  setShowEditModal(false);
+                  setShowSuccessOverlay(true);
                   setTimeout(() => {
-                    setSuccessMessage('');
-                    setShowEditModal(false);
-                  }, 2000);
+                    setShowSuccessOverlay(false);
+                  }, 3000);
                 } catch (error: any) {
                   // Handle field-specific errors
                   if (typeof error === 'object' && error !== null) {
                     setErrors(error);
                   } else {
-                    Alert.alert('خطأ', error.message || 'فشل في حفظ التعديلات');
+                    setErrorMessage(error.message || 'فشل في حفظ التعديلات');
+                    setShowEditModal(false);
+                    setShowErrorOverlay(true);
+                    setTimeout(() => {
+                      setShowErrorOverlay(false);
+                      setErrorMessage('');
+                    }, 3000);
                   }
                 }
               }} style={styles.saveButton}>
@@ -339,6 +344,27 @@ export const ProfileScreen: React.FC<Props> = ({ onBack, onLogout, onNavigateHom
           </View>
         </View>
       </Modal>
+
+      {/* Success Overlay */}
+      {showSuccessOverlay && (
+        <View style={styles.successOverlay}>
+          <View style={styles.successMessage}>
+            <Feather name="check-circle" size={48} color="#10B981" />
+            <Text style={styles.successTitle}>تم حفظ التعديلات بنجاح</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Error Overlay */}
+      {showErrorOverlay && (
+        <View style={styles.errorOverlay}>
+          <View style={styles.errorMessage}>
+            <Feather name="x-circle" size={48} color="#EF4444" />
+            <Text style={styles.errorTitle}>فشل في حفظ التعديلات</Text>
+            <Text style={styles.errorSubtitle}>{errorMessage}</Text>
+          </View>
+        </View>
+      )}
       </ScrollView>
 
       {/* Bottom Navigation */}
@@ -642,6 +668,7 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textTransform: 'uppercase',
     letterSpacing: 1,
+    textAlign: 'right',
   },
   input: {
     width: '100%',
@@ -652,6 +679,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#1F2937',
+    textAlign: 'right',
+  },
+  dateInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+  },
+  dateText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  dateIcon: {
+    marginLeft: 8,
   },
   inputError: {
     borderWidth: 1,
@@ -773,5 +815,75 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 8,
+  },
+  successOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  successMessage: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  successSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  errorOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  errorMessage: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });

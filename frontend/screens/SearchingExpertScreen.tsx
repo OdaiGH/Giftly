@@ -4,26 +4,35 @@ import { View, Text, StyleSheet, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 interface Props {
-  onComplete: () => void;
+  orderId: string;
+  onNavigateToChat: (orderId: string) => void;
 }
 
-export const SearchingExpertScreen: React.FC<Props> = ({ onComplete }) => {
+export const SearchingExpertScreen: React.FC<Props> = ({ orderId, onNavigateToChat }) => {
   const [dots, setDots] = useState('');
 
   useEffect(() => {
+    console.log('SearchingExpertScreen: orderId =', orderId);
+
+    if (!orderId) {
+      console.error('SearchingExpertScreen: No orderId provided!');
+      return;
+    }
+
     const dotsInterval = setInterval(() => {
       setDots(prev => (prev.length >= 3 ? '' : prev + '.'));
     }, 500);
 
     const timer = setTimeout(() => {
-      onComplete();
+      console.log('SearchingExpertScreen: Navigating to chat with orderId =', orderId);
+      onNavigateToChat(orderId);
     }, 5000);
 
     return () => {
       clearInterval(dotsInterval);
       clearTimeout(timer);
     };
-  }, [onComplete]);
+  }, [orderId, onNavigateToChat]);
 
   return (
     <View style={styles.container}>

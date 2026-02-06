@@ -1,12 +1,16 @@
 
-import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, Image, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, Image, Modal, Alert, Keyboard } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../types';
+import { useAuth } from '../App';
+import { cancelOrder, getOrder, OrderResponse } from '../api';
 
 interface Props {
   onBack: () => void;
+  orderId?: string | null;
+  onShowInvoice?: (orderId: number) => void;
 }
 
 const INITIAL_MESSAGES: Message[] = [
@@ -15,11 +19,38 @@ const INITIAL_MESSAGES: Message[] = [
   { id: '3', text: 'أبشر، جاري فحص الحالة مع المندوب الآن. انتظرني لحظة فضلاً.', sender: 'other', time: '10:02 ص' },
 ];
 
-export const CustomerChatScreen: React.FC<Props> = ({ onBack }) => {
+export const CustomerChatScreen: React.FC<Props> = ({ onBack, orderId, onShowInvoice }) => {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState('');
   const [showCancelOptions, setShowCancelOptions] = useState(false);
+  const [selectedReason, setSelectedReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
+  const [order, setOrder] = useState<OrderResponse | null>(null);
+  const [loadingOrder, setLoadingOrder] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showErrorOverlay, setShowErrorOverlay] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const { token } = useAuth();
+
+  useEffect(() => {
+    if (orderId && token) {
+      fetchOrderDetails();
+    }
+  }, [orderId, token]);
+
+  const fetchOrderDetails = async () => {
+    if (!orderId || !token) return;
+    setLoadingOrder(true);
+    try {
+      const orderDetails = await getOrder(token, orderId);
+      setOrder(orderDetails);
+    } catch (error) {
+      console.error('Failed to fetch order details:', error);
+    } finally {
+      setLoadingOrder(false);
+    }
+  };
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -42,6 +73,42 @@ export const CustomerChatScreen: React.FC<Props> = ({ onBack }) => {
       time: 'الآن',
     };
     setMessages([...messages, newMessage]);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!order || !token) return;
+
+    const reason = selectedReason === 'سبب آخر' ? customReason : selectedReason;
+    if (!reason.trim()) {
+      Alert.alert('خطأ', 'يرجى اختيار سبب أو إدخال سبب مخصص');
+      return;
+    }
+
+    try {
+      await cancelOrder(token, order.order_id, { reason });
+      setShowCancelOptions(false);
+      setShowSuccessMessage(true);
+
+      // Update order status locally
+      if (order) {
+        setOrder({ ...order, status: 'cancelled' });
+      }
+
+      // Navigate back to home after 3 seconds
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+        onBack();
+      }, 3000);
+    } catch (error: any) {
+      console.error('Failed to cancel order:', error);
+      setShowCancelOptions(false);
+      setErrorMessage(error.message || 'فشل في إلغاء الطلب');
+      setShowErrorOverlay(true);
+      setTimeout(() => {
+        setShowErrorOverlay(false);
+        setErrorMessage('');
+      }, 3000);
+    }
   };
 
   return (
@@ -67,12 +134,17 @@ export const CustomerChatScreen: React.FC<Props> = ({ onBack }) => {
           </Pressable>
         </View>
         <View style={styles.headerActions}>
-          <Pressable style={styles.actionButton}>
-            <Feather name="phone" size={20} color="#9CA3AF" />
-          </Pressable>
-          <Pressable onPress={() => setShowCancelOptions(true)} style={styles.cancelButton}>
-            <Text style={styles.cancelText}>إلغاء الطلب</Text>
-          </Pressable>
+          {order && order.status === 'paid' && (
+            <Pressable onPress={() => Alert.alert('خدمة العملاء', 'يرجى الاتصال بخدمة العملاء على الرقم: 800-123-4567')} style={styles.customerCareButton}>
+              <Feather name="headphones" size={16} color="#1E40AF" />
+              <Text style={styles.customerCareText}>خدمة العملاء</Text>
+            </Pressable>
+          )}
+          {order && order.status !== 'cancelled' && order.status !== 'done' && order.status !== 'paid' && (
+            <Pressable onPress={() => setShowCancelOptions(true)} style={styles.cancelButton}>
+              <Text style={styles.cancelText}>إلغاء الطلب</Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -92,6 +164,12 @@ export const CustomerChatScreen: React.FC<Props> = ({ onBack }) => {
 
       {/* Input Area */}
       <View style={styles.inputArea}>
+        {order && order.invoice && onShowInvoice && (
+          <Pressable onPress={() => onShowInvoice(order.id)} style={styles.invoiceButtonBottom}>
+            <Feather name="file-text" size={16} color="#E0AAFF" />
+            <Text style={styles.invoiceButtonTextBottom}>عرض الفاتورة</Text>
+          </Pressable>
+        )}
         <View style={styles.inputContainer}>
           <Pressable onPress={handleAttachImage} style={styles.attachButton}>
             <Feather name="image" size={22} color="#9CA3AF" />
@@ -125,54 +203,91 @@ export const CustomerChatScreen: React.FC<Props> = ({ onBack }) => {
               </Pressable>
             </View>
 
-            <View style={styles.cancelOptions}>
-              <Pressable style={styles.cancelOption}>
-                <View style={styles.cancelOptionIcon}>
-                  <Feather name="message-circle" size={20} color="#EF4444" />
-                </View>
-                <View style={styles.cancelOptionContent}>
-                  <Text style={styles.cancelOptionTitle}>تواصل مع المندوب</Text>
-                  <Text style={styles.cancelOptionSubtitle}>تحدث مع المندوب لحل المشكلة</Text>
-                </View>
-              </Pressable>
+            <Text style={styles.cancelModalSubtitle}>يرجى اختيار سبب الإلغاء:</Text>
 
-              <Pressable style={styles.cancelOption}>
-                <View style={styles.cancelOptionIcon}>
-                  <Feather name="headphones" size={20} color="#F59E0B" />
-                </View>
-                <View style={styles.cancelOptionContent}>
-                  <Text style={styles.cancelOptionTitle}>الدعم الفني</Text>
-                  <Text style={styles.cancelOptionSubtitle}>تواصل مع فريق الدعم</Text>
-                </View>
-              </Pressable>
-
-              <Pressable style={styles.cancelOption}>
-                <View style={styles.cancelOptionIcon}>
-                  <Feather name="refresh-ccw" size={20} color="#10B981" />
-                </View>
-                <View style={styles.cancelOptionContent}>
-                  <Text style={styles.cancelOptionTitle}>إعادة جدولة</Text>
-                  <Text style={styles.cancelOptionSubtitle}>غير موعد التوصيل</Text>
-                </View>
-              </Pressable>
-
-              <Pressable style={[styles.cancelOption, styles.cancelFinal]}>
-                <View style={styles.cancelOptionIcon}>
-                  <Feather name="x-circle" size={20} color="#DC2626" />
-                </View>
-                <View style={styles.cancelOptionContent}>
-                  <Text style={styles.cancelOptionTitle}>إلغاء نهائي</Text>
-                  <Text style={styles.cancelOptionSubtitle}>إلغاء الطلب بشكل نهائي</Text>
-                </View>
-              </Pressable>
+            <View style={styles.reasonsList}>
+              {[
+                'عدم تجاوب المندوب',
+                'المنتج غير متوفر',
+                'السعر غير مناسب',
+                'مشكلة في الدفع',
+                'غيّرت رأيي',
+                'سبب آخر'
+              ].map((reason) => (
+                <Pressable
+                  key={reason}
+                  onPress={() => setSelectedReason(reason)}
+                  style={[
+                    styles.reasonOption,
+                    selectedReason === reason && styles.selectedReasonOption
+                  ]}
+                >
+                  <Text style={[
+                    styles.reasonText,
+                    selectedReason === reason && styles.selectedReasonText
+                  ]}>
+                    {reason}
+                  </Text>
+                  {selectedReason === reason && (
+                    <Feather name="check" size={16} color="#E0AAFF" />
+                  )}
+                </Pressable>
+              ))}
             </View>
 
-            <Pressable onPress={() => setShowCancelOptions(false)} style={styles.cancelKeepButton}>
-              <Text style={styles.cancelKeepText}>الاحتفاظ بالطلب</Text>
-            </Pressable>
+            {selectedReason === 'سبب آخر' && (
+              <TextInput
+                style={styles.customReasonInput}
+                placeholder="اكتب السبب هنا..."
+                value={customReason}
+                onChangeText={setCustomReason}
+                multiline
+                numberOfLines={3}
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
+                blurOnSubmit={true}
+              />
+            )}
+
+            <View style={styles.cancelModalActions}>
+              <Pressable
+                onPress={() => setShowCancelOptions(false)}
+                style={styles.cancelModalCancelButton}
+              >
+                <Text style={styles.cancelModalCancelText}>إلغاء</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleConfirmCancel}
+                style={styles.cancelModalConfirmButton}
+              >
+                <Text style={styles.cancelModalConfirmText}>تأكيد الإلغاء</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
+
+      {/* Success Message Overlay */}
+      {showSuccessMessage && (
+        <View style={styles.successOverlay}>
+          <View style={styles.successMessage}>
+            <Feather name="check-circle" size={48} color="#10B981" />
+            <Text style={styles.successTitle}>تم إلغاء الطلب بنجاح</Text>
+            <Text style={styles.successSubtitle}>سيتم توجيهك إلى الصفحة الرئيسية...</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Error Overlay */}
+      {showErrorOverlay && (
+        <View style={styles.errorOverlay}>
+          <View style={styles.errorMessage}>
+            <Feather name="x-circle" size={48} color="#EF4444" />
+            <Text style={styles.errorTitle}>فشل في إلغاء الطلب</Text>
+            <Text style={styles.errorSubtitle}>{errorMessage}</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -275,6 +390,58 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontWeight: '900',
     textTransform: 'uppercase',
+  },
+  customerCareButton: {
+    backgroundColor: 'rgba(30, 64, 175, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(30, 64, 175, 0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  customerCareText: {
+    fontSize: 10,
+    color: '#1E40AF',
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  invoiceButton: {
+    backgroundColor: 'rgba(224, 170, 255, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(224, 170, 255, 0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  invoiceButtonText: {
+    fontSize: 10,
+    color: '#E0AAFF',
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  invoiceButtonBottom: {
+    backgroundColor: 'rgba(224, 170, 255, 0.1)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(224, 170, 255, 0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    alignSelf: 'center',
+  },
+  invoiceButtonTextBottom: {
+    fontSize: 12,
+    color: '#E0AAFF',
+    fontWeight: 'bold',
   },
   chatContainer: {
     flex: 1,
@@ -403,6 +570,50 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     borderRadius: 16,
   },
+  cancelModalSubtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginBottom: 20,
+  },
+  reasonsList: {
+    gap: 10,
+    marginBottom: 20,
+  },
+  reasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  selectedReasonOption: {
+    backgroundColor: 'rgba(224, 170, 255, 0.1)',
+    borderColor: '#E0AAFF',
+  },
+  reasonText: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  selectedReasonText: {
+    color: '#E0AAFF',
+    fontWeight: 'bold',
+  },
+  customReasonInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: '#374151',
+    textAlignVertical: 'top',
+    marginBottom: 20,
+    minHeight: 80,
+  },
   cancelOptions: {
     gap: 12,
     marginBottom: 24,
@@ -454,5 +665,138 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
+  },
+  cancelModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelModalCancelButton: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  cancelModalCancelText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#6B7280',
+  },
+  cancelModalConfirmButton: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  cancelModalConfirmText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  successOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  successMessage: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  successSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  errorOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  errorMessage: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  paidOrderBanner: {
+    backgroundColor: '#DBEAFE',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 16,
+    margin: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  bannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1E40AF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerContent: {
+    flex: 1,
+  },
+  bannerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1E40AF',
+    marginBottom: 4,
+  },
+  bannerText: {
+    fontSize: 14,
+    color: '#1E40AF',
+    lineHeight: 20,
   },
 });

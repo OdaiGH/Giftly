@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional
 from datetime import date, datetime
@@ -86,8 +88,8 @@ class UpdateUserProfile(BaseModel):
     @validator('name')
     def validate_name(cls, v):
         if v is not None:
-            if not re.match(r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z\s]{2,}$', v.strip()):
-                raise ValueError('Name must contain only letters and spaces, minimum 2 characters')
+            if not re.match(r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z0-9\s]{2,}$', v.strip()):
+                raise ValueError('Name must contain only letters, numbers, and spaces, minimum 2 characters')
             if len(v.strip()) < 2:
                 raise ValueError('Name must be at least 2 characters long')
         return v
@@ -126,31 +128,6 @@ class CreateOrder(BaseModel):
             return None  # Treat empty strings as None
         return v
 
-class OrderResponse(BaseModel):
-    id: int
-    order_id: str
-    created_by_user_id: int
-    assigned_to_user_id: Optional[int]
-    description: Optional[str]
-    creation_date: datetime
-    delivery_date: Optional[datetime]
-    status: OrderStatusEnum
-    comments: Optional[str]
-    updated_at: datetime
-    city_id: int
-
-    class Config:
-        from_attributes = True
-
-class CityResponse(BaseModel):
-    id: int
-    name: str
-    icon: Optional[str]
-    active: bool
-
-    class Config:
-        from_attributes = True
-
 class InvoiceResponse(BaseModel):
     id: int
     invoice_id: str
@@ -173,6 +150,32 @@ class InvoiceResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class OrderResponse(BaseModel):
+    id: int
+    order_id: str
+    created_by_user_id: int
+    assigned_to_user_id: Optional[int]
+    description: Optional[str]
+    creation_date: datetime
+    delivery_date: Optional[datetime]
+    status: OrderStatusEnum
+    comments: Optional[str]
+    updated_at: datetime
+    city_id: int
+    invoice: Optional[InvoiceResponse] = None  # Include invoice information
+
+    class Config:
+        from_attributes = True
+
+class CityResponse(BaseModel):
+    id: int
+    name: str
+    icon: Optional[str]
+    active: bool
+
+    class Config:
+        from_attributes = True
+
 class CreateInvoice(BaseModel):
     order_id: int
     full_amount: int
@@ -184,3 +187,6 @@ class CreateInvoice(BaseModel):
     due_date: Optional[datetime] = None
     tax_amount: Optional[int] = 0
     discount_amount: Optional[int] = 0
+
+class CancelOrderRequest(BaseModel):
+    reason: str

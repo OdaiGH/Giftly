@@ -9,10 +9,13 @@ import { BudgetScreen } from './screens/BudgetScreen';
 import { CitySelectionScreen } from './screens/CitySelectionScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { CourierChatScreen } from './screens/CourierChatScreen';
+import { CustomerChatScreen } from './screens/CustomerChatScreen';
+import { SearchingExpertScreen } from './screens/SearchingExpertScreen';
 import { CourierHomeScreen } from './screens/CourierHomeScreen';
 import { CourierLoginScreen } from './screens/CourierLoginScreen';
+import { InvoiceScreen } from './screens/InvoiceScreen';
 
-type Screen = 'welcome' | 'login' | 'profile' | 'home' | 'budget' | 'citySelection' | 'userProfile' | 'courierChat' | 'courierLogin' | 'courierHome';
+type Screen = 'welcome' | 'login' | 'profile' | 'home' | 'budget' | 'citySelection' | 'userProfile' | 'courierChat' | 'customerChat' | 'searchingExpert' | 'courierLogin' | 'courierHome' | 'invoice';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -89,6 +92,9 @@ const AppContent: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [authData, setAuthData] = useState<{ phone: string; otp?: string; token?: string } | null>(null);
   const [orderData, setOrderData] = useState<{ description?: string; cityId?: number; deliveryDate?: Date } | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [initialHomeTab, setInitialHomeTab] = useState<'home' | 'orders'>('home');
+  const [previousScreen, setPreviousScreen] = useState<Screen>('home');
   const { login } = useAuth();
 
   const toggleDarkMode = () => {
@@ -135,7 +141,16 @@ const AppContent: React.FC = () => {
             onNavigateProfile={() => setCurrentScreen('userProfile')}
             onNavigateCourier={() => setCurrentScreen('courierChat')}
             onStartOrder={() => setCurrentScreen('budget')}
-            onShowInvoice={() => {}}
+            onShowInvoice={(orderId) => {
+              setPreviousScreen('home');
+              setSelectedOrderId(orderId.toString());
+              setCurrentScreen('invoice');
+            }}
+            onNavigateToOrderChat={(orderId) => {
+              setSelectedOrderId(orderId);
+              setCurrentScreen('customerChat');
+            }}
+            initialTab={initialHomeTab}
           />
         );
       case 'budget':
@@ -148,7 +163,10 @@ const AppContent: React.FC = () => {
         />;
       case 'citySelection':
         return <CitySelectionScreen
-          onNext={() => setCurrentScreen('courierChat')}
+          onNext={(orderId) => {
+            setSelectedOrderId(orderId);
+            setCurrentScreen('searchingExpert');
+          }}
           onBack={() => setCurrentScreen('budget')}
           orderData={orderData || undefined}
         />;
@@ -165,6 +183,29 @@ const AppContent: React.FC = () => {
         />;
       case 'courierChat':
         return <CourierChatScreen userRole="customer" onBack={() => setCurrentScreen('home')} onFinishOrder={() => {}} onShowInvoice={() => {}} />;
+      case 'customerChat':
+        return <CustomerChatScreen
+          orderId={selectedOrderId}
+          onShowInvoice={(orderId) => {
+            setPreviousScreen('customerChat');
+            setSelectedOrderId(orderId.toString());
+            setCurrentScreen('invoice');
+          }}
+          onBack={() => {
+            setInitialHomeTab('orders');
+            setCurrentScreen('home');
+          }}
+        />;
+      case 'searchingExpert':
+        console.log('App.tsx: Rendering SearchingExpertScreen with orderId =', selectedOrderId);
+        return <SearchingExpertScreen
+          orderId={selectedOrderId || ''}
+          onNavigateToChat={(orderId) => {
+            console.log('App.tsx: SearchingExpertScreen onNavigateToChat called with orderId =', orderId);
+            setSelectedOrderId(orderId);
+            setCurrentScreen('customerChat');
+          }}
+        />;
       case 'courierLogin':
         return <CourierLoginScreen onNext={() => setCurrentScreen('courierHome')} onBack={() => setCurrentScreen('login')} />;
       case 'courierHome':
@@ -174,6 +215,20 @@ const AppContent: React.FC = () => {
           isDarkMode={isDarkMode}
           toggleDarkMode={toggleDarkMode}
           theme={theme}
+        />;
+      case 'invoice':
+        return <InvoiceScreen
+          orderId={parseInt(selectedOrderId || '0')}
+          onBack={() => {
+            if (previousScreen === 'customerChat') {
+              setCurrentScreen('customerChat');
+            } else if (previousScreen === 'home') {
+              setInitialHomeTab('orders');
+              setCurrentScreen('home');
+            } else {
+              setCurrentScreen(previousScreen);
+            }
+          }}
         />;
       default:
         return <WelcomeScreen onStart={() => setCurrentScreen('login')} />;

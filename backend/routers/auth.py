@@ -103,7 +103,7 @@ def update_current_user(user_update: UpdateUserProfile, current_user: User = Dep
         errors["name"] = "'D'3E E7DH("
     elif len(user_update.name.strip()) < 2:
         errors["name"] = "'D'3E J,( #F JCHF 2 #-1A 9DI 'D#BD"
-    elif not re.match(r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z\s]+$', user_update.name.strip()):
+    elif not re.match(r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z0-9\s]+$', user_update.name.strip()):
         errors["name"] = "'D'3E J,( #F J-*HJ 9DI #-1A AB7"
 
     # Validate email
