@@ -1,14 +1,17 @@
 
 import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../App';
+import { createOrder } from '../api';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface Props {
   onNext: () => void;
   onBack: () => void;
+  orderData?: { description?: string; deliveryDate?: Date };
 }
 
 const CITIES = [
@@ -32,9 +35,34 @@ const CITIES = [
   { id: '18', name: 'سكاكا', icon: '🫒' },
 ];
 
-export const CitySelectionScreen: React.FC<Props> = ({ onNext, onBack }) => {
+export const CitySelectionScreen: React.FC<Props> = ({ onNext, onBack, orderData }) => {
   const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { token } = useAuth();
+
+  const handleConfirm = async () => {
+    if (!selected || !orderData?.deliveryDate || !token) {
+      Alert.alert('خطأ', 'يرجى اختيار المدينة');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const order = await createOrder(token, {
+        description: orderData?.description || '',
+        city_id: parseInt(selected),
+        delivery_date: orderData.deliveryDate.toISOString(),
+      });
+      // Proceed to next screen
+      onNext();
+    } catch (error) {
+      Alert.alert('خطأ', 'فشل في إنشاء الطلب');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -64,14 +92,16 @@ export const CitySelectionScreen: React.FC<Props> = ({ onNext, onBack }) => {
 
       <View style={styles.bottomContainer}>
         <Pressable
-          disabled={!selected}
-          onPress={onNext}
+          disabled={!selected || loading}
+          onPress={handleConfirm}
           style={[
             styles.confirmButton,
-            !selected && styles.disabledButton,
+            (!selected || loading) && styles.disabledButton,
           ]}
         >
-          <Text style={styles.confirmText}>تأكيد والمتابعة للدردشة</Text>
+          <Text style={styles.confirmText}>
+            {loading ? 'جاري الإنشاء...' : 'تأكيد والمتابعة للدردشة'}
+          </Text>
         </Pressable>
       </View>
     </View>

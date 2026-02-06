@@ -1,11 +1,14 @@
+import sys
+import os
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(backend_dir)
+os.chdir(backend_dir)
+
 from database import SessionLocal, engine, Base
 from models import User
 from auth import get_password_hash
 
 def create_admin():
-    # Create tables
-    Base.metadata.create_all(bind=engine)
-
     db = SessionLocal()
     try:
         # Check if admin already exists

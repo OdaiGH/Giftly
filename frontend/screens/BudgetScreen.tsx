@@ -1,20 +1,51 @@
 
 import React, { useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Pressable,TextInput, ScrollView, StyleSheet, Dimensions,Platform, Modal } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface Props {
-  onNext: () => void;
+  onNext: (description: string, deliveryDate: Date) => void;
   onBack: () => void;
 }
 
 export const BudgetScreen: React.FC<Props> = ({ onNext, onBack }) => {
   const insets = useSafeAreaInsets();
   const [description, setDescription] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateError, setDateError] = useState('');
+  const [tempDate, setTempDate] = useState<Date>(new Date());
 
+  const formatArabicDate = (date: Date) => {
+    const arabicMonths = [
+      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+    ];
+
+    const day = date.getDate();
+    const month = arabicMonths[date.getMonth()];
+    const year = date.getFullYear();
+
+    return `${day} ${month} ${year}`;
+  };
+
+  const handleNext = () => {
+    // Clear previous errors
+    setDateError('');
+
+    // Validate delivery date
+    if (!deliveryDate) {
+      setDateError('يرجى اختيار تاريخ التوصيل');
+      return;
+    }
+
+    // Proceed to next screen
+    onNext(description, deliveryDate);
+  };
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + screenHeight * 0.03 }]}>
       <View style={styles.header}>
@@ -54,10 +85,98 @@ export const BudgetScreen: React.FC<Props> = ({ onNext, onBack }) => {
             إذا ماتعرف وش الهدية، لا تقلق! اترك الوصف فارغاً وسيقوم مندوبنا بترتيبها وتنسيقها معك خطوة بخطوة.
           </Text>
         </View>
+        </View>
+
+        {/* Delivery Date Picker */}
+        <View style={styles.datePickerContainer}>
+          <Text style={styles.datePickerLabel}>تاريخ التوصيل</Text>
+          <Pressable onPress={() => setShowDatePicker(true)} style={[styles.datePickerButton, dateError ? styles.datePickerError : null]}>
+            <Text style={[styles.datePickerText, !deliveryDate && styles.datePickerPlaceholder]}>
+              { deliveryDate ? formatArabicDate(deliveryDate) : 'اختر تاريخ التوصيل'}
+            </Text>
+            <Feather name="calendar" size={20} color={dateError ? "#EF4444" : "#E0AAFF"} />
+          </Pressable>
+          {dateError ? <Text style={styles.errorText}>{dateError}</Text> : null}
+        </View>
+<Modal
+  visible={showDatePicker}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setShowDatePicker(false)}
+>
+  <View
+    style={{
+      flex: 1,
+      justifyContent: 'center',
+      backgroundColor: 'rgba(0,0,0,0.4)',
+    }}
+  >
+    <View
+      style={{
+        backgroundColor: '#fff',
+        marginHorizontal: 20,
+        borderRadius: 12,
+        paddingTop: 8,
+      }}
+    >
+      <DateTimePicker
+        value={tempDate}
+        mode="date"
+        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+        minimumDate={(() => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          return today;
+        })()}
+        maximumDate={(() => {
+          const maxDate = new Date();
+          maxDate.setFullYear(maxDate.getFullYear() + 1);
+          return maxDate;
+        })()}
+        locale="en-US"
+        accentColor="#000000"
+        textColor="#000000"
+        onChange={(_, date) => {
+          if (date) setTempDate(date); // only update temp date
+        }}
+      />
+
+      {/* Buttons */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderTopWidth: 1,
+          borderColor: '#E5E7EB',
+        }}
+      >
+        <Pressable onPress={() => setShowDatePicker(false)}>
+          <Text style={{ color: '#6B7280', fontSize: 16 }}>
+            إلغاء
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            setDeliveryDate(tempDate); // just set the date
+            setDateError(''); // Clear error when date is selected
+            setShowDatePicker(false);
+          }}
+        >
+          <Text style={{ color: '#000000', fontSize: 16, fontWeight: '600' }}>
+            تأكيد
+          </Text>
+        </Pressable>
       </View>
+    </View>
+  </View>
+</Modal>
+
 
       <View style={styles.buttonContainer}>
-        <Pressable onPress={onNext} style={styles.button}>
+        <Pressable onPress={handleNext} style={styles.button}>
           <Text style={styles.buttonText}>
             {description.trim() ? 'المتابعة لاختيار المدينة' : 'تخطي والترتيب مع المندوب'}
           </Text>
@@ -190,5 +309,50 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: 'white',
     textAlign: 'center',
+  },
+  datePickerContainer: {
+    marginBottom: screenHeight * 0.03,
+  },
+  datePickerLabel: {
+    fontSize: screenWidth * 0.04,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: screenHeight * 0.01,
+    textAlign: 'right',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'white',
+    borderWidth: 2,
+    borderColor: '#F9FAFB',
+    borderRadius: 16,
+    paddingHorizontal: screenWidth * 0.04,
+    paddingVertical: screenHeight * 0.015,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  datePickerText: {
+    fontSize: screenWidth * 0.035,
+    fontWeight: '500',
+    color: '#1F2937',
+    textAlign: 'right',
+  },
+  datePickerPlaceholder: {
+    color: '#9CA3AF',
+  },
+  datePickerError: {
+    borderColor: '#EF4444',
+  },
+  errorText: {
+    fontSize: screenWidth * 0.03,
+    color: '#EF4444',
+    fontWeight: '500',
+    textAlign: 'right',
+    marginTop: screenHeight * 0.005,
   },
 });

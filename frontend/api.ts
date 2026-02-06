@@ -42,6 +42,96 @@ export const sendOTP = async (phoneNumber: string): Promise<{message: string, ot
   return response.json();
 };
 
+export interface CreateOrderRequest {
+  description?: string;
+  city_id: number;
+  delivery_date: string; // ISO string
+}
+
+export interface OrderResponse {
+  id: number;
+  order_id: string;
+  created_by_user_id: number;
+  assigned_to_user_id: number | null;
+  description: string | null;
+  creation_date: string;
+  delivery_date: string | null;
+  status: string;
+  comments: string | null;
+  updated_at: string;
+  city_id: number;
+}
+
+export const createOrder = async (token: string, data: CreateOrderRequest): Promise<OrderResponse> => {
+  const response = await fetch(`${API_BASE_URL}/orders/`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to create order';
+    try {
+      const error = await response.json();
+      errorMessage = error.detail || errorMessage;
+    } catch (e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+};
+
+export const getUserOrders = async (token: string): Promise<OrderResponse[]> => {
+  const response = await fetch(`${API_BASE_URL}/orders/`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to fetch orders';
+    try {
+      const error = await response.json();
+      errorMessage = error.detail || errorMessage;
+    } catch (e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+};
+
+export const getOrder = async (token: string, orderId: string): Promise<OrderResponse> => {
+  const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to fetch order';
+    try {
+      const error = await response.json();
+      errorMessage = error.detail || errorMessage;
+    } catch (e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+};
+
 export const verifyOTP = async (data: OTPVerifyRequest): Promise<TokenResponse> => {
   const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
     method: 'POST',

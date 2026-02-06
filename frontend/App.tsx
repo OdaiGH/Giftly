@@ -88,6 +88,7 @@ const AppContent: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [authData, setAuthData] = useState<{ phone: string; otp?: string; token?: string } | null>(null);
+  const [orderData, setOrderData] = useState<{ description?: string; cityId?: number; deliveryDate?: Date } | null>(null);
   const { login } = useAuth();
 
   const toggleDarkMode = () => {
@@ -138,9 +139,19 @@ const AppContent: React.FC = () => {
           />
         );
       case 'budget':
-        return <BudgetScreen onNext={() => setCurrentScreen('citySelection')} onBack={() => setCurrentScreen('home')} />;
+        return <BudgetScreen
+          onNext={(description, deliveryDate) => {
+            setOrderData({ description, deliveryDate });
+            setCurrentScreen('citySelection');
+          }}
+          onBack={() => setCurrentScreen('home')}
+        />;
       case 'citySelection':
-        return <CitySelectionScreen onNext={() => setCurrentScreen('courierChat')} onBack={() => setCurrentScreen('budget')} />;
+        return <CitySelectionScreen
+          onNext={() => setCurrentScreen('courierChat')}
+          onBack={() => setCurrentScreen('budget')}
+          orderData={orderData || undefined}
+        />;
       case 'userProfile':
         return <ProfileScreen
           onBack={() => setCurrentScreen('home')}

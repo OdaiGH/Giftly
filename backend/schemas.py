@@ -2,6 +2,23 @@ from pydantic import BaseModel, EmailStr, validator
 from typing import Optional
 from datetime import date, datetime
 import re
+from enum import Enum
+
+class OrderStatusEnum(str, Enum):
+    NEW = "new"
+    RECEIVED_BY_COURIER = "received by courier"
+    PAID = "paid"
+    IN_PROGRESS_TO_DO = "in progress to do"
+    CANCELLED = "cancelled"
+    DONE = "done"
+    IN_PROGRESS_TO_DELIVER = "in progress to deliver"
+
+class InvoiceStatusEnum(str, Enum):
+    NEW = "new"
+    PAID = "paid"
+    CANCELLED = "cancelled"
+    REFUNDED = "refunded"
+    OTHER = "other"
 
 class SendOTP(BaseModel):
     phone_number: str
@@ -97,3 +114,73 @@ class TokenData(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
+class CreateOrder(BaseModel):
+    description: Optional[str] = None
+    city_id: int
+    delivery_date: datetime
+
+    @validator('description')
+    def validate_description(cls, v):
+        if v is not None and len(v.strip()) == 0:
+            return None  # Treat empty strings as None
+        return v
+
+class OrderResponse(BaseModel):
+    id: int
+    order_id: str
+    created_by_user_id: int
+    assigned_to_user_id: Optional[int]
+    description: Optional[str]
+    creation_date: datetime
+    delivery_date: Optional[datetime]
+    status: OrderStatusEnum
+    comments: Optional[str]
+    updated_at: datetime
+    city_id: int
+
+    class Config:
+        from_attributes = True
+
+class CityResponse(BaseModel):
+    id: int
+    name: str
+    icon: Optional[str]
+    active: bool
+
+    class Config:
+        from_attributes = True
+
+class InvoiceResponse(BaseModel):
+    id: int
+    invoice_id: str
+    order_id: int
+    full_amount: int
+    service_fee: int
+    order_only_price: int
+    courier_fee: int
+    status: InvoiceStatusEnum
+    description: Optional[str]
+    comment: Optional[str]
+    sent_to_user_via_email: bool
+    sent_at: Optional[datetime]
+    due_date: Optional[datetime]
+    tax_amount: int
+    discount_amount: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class CreateInvoice(BaseModel):
+    order_id: int
+    full_amount: int
+    service_fee: Optional[int] = 0
+    order_only_price: int
+    courier_fee: Optional[int] = 0
+    description: Optional[str] = None
+    comment: Optional[str] = None
+    due_date: Optional[datetime] = None
+    tax_amount: Optional[int] = 0
+    discount_amount: Optional[int] = 0

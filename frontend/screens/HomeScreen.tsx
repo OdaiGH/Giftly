@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../App';
+import { getUserOrders, OrderResponse } from '../api';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -17,7 +18,52 @@ interface Props {
 export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCourier, onStartOrder, onShowInvoice }) => {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'home' | 'orders'>('home');
-  const { userData } = useAuth();
+  const [orders, setOrders] = useState<OrderResponse[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const { userData, token } = useAuth();
+
+  useEffect(() => {
+    if (activeTab === 'orders' && token) {
+      fetchOrders();
+    }
+  }, [activeTab, token]);
+
+  const fetchOrders = async () => {
+    if (!token) return;
+    setLoadingOrders(true);
+    try {
+      const userOrders = await getUserOrders(token);
+      setOrders(userOrders);
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ar-SA', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getStatusText = (status: string) => {
+    const statusMap: { [key: string]: string } = {
+      'new': 'جديد',
+      'received by courier': 'تم استلام من المندوب',
+      'paid': 'مدفوع',
+      'in progress to do': 'قيد التنفيذ',
+      'cancelled': 'ملغي',
+      'done': 'مكتمل',
+      'in progress to deliver': 'قيد التوصيل'
+    };
+    return statusMap[status] || status;
+  };
 
   return (
     <View style={styles.container}>
@@ -91,30 +137,41 @@ export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCouri
         ) : (
           <View style={styles.ordersContent}>
             <Text style={styles.sectionTitle}>طلباتك</Text>
-            <View style={styles.orderItem}>
-              <View style={styles.orderHeader}>
-                <View style={styles.orderIcon}>
-                  <Feather name="package" size={18} color="#E0AAFF" />
+            {loadingOrders ? (
+              <Text style={styles.loadingText}>جاري تحميل الطلبات...</Text>
+            ) : orders.length === 0 ? (
+              <Text style={styles.noOrdersText}>لا توجد طلبات بعد</Text>
+            ) : (
+              orders.map((order) => (
+                <View key={order.id} style={styles.orderItem}>
+                  <View style={styles.orderHeader}>
+                    <View style={styles.orderIcon}>
+                      <Feather name="package" size={18} color="#E0AAFF" />
+                    </View>
+                    <View style={styles.orderInfo}>
+                      <Text style={styles.orderId}>طلب #{order.order_id}</Text>
+                      <Text style={styles.orderItemName}>
+                        {order.description || 'وصف غير محدد'}
+                      </Text>
+                      <Text style={styles.orderDate}>
+                        تاريخ التوصيل: {order.delivery_date ? formatDate(order.delivery_date) : 'غير محدد'}
+                      </Text>
+                    </View>
+                    <View style={styles.orderPrice}>
+                      <Text style={styles.statusText}>{getStatusText(order.status)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.orderActions}>
+                    <Pressable onPress={onShowInvoice} style={styles.actionButton}>
+                      <Text style={styles.actionButtonText}>عرض الفاتورة</Text>
+                    </Pressable>
+                    <Pressable onPress={() => {}} style={styles.secondaryActionButton}>
+                      <Text style={styles.secondaryActionText}>تتبع الطلب</Text>
+                    </Pressable>
+                  </View>
                 </View>
-                <View style={styles.orderInfo}>
-                  <Text style={styles.orderId}>طلب #8742</Text>
-                  <Text style={styles.orderItemName}>باقة جوري حمراء</Text>
-                  <Text style={styles.orderDate}>اليوم، 11:20 ص</Text>
-                </View>
-                <View style={styles.orderPrice}>
-                  <Text style={styles.priceText}>210 ر.س</Text>
-                  <Text style={styles.statusText}>جاري التنفيذ</Text>
-                </View>
-              </View>
-              <View style={styles.orderActions}>
-                <Pressable onPress={onShowInvoice} style={styles.actionButton}>
-                  <Text style={styles.actionButtonText}>عرض الفاتورة</Text>
-                </Pressable>
-                <Pressable onPress={() => {}} style={styles.secondaryActionButton}>
-                  <Text style={styles.secondaryActionText}>تتبع الطلب</Text>
-                </Pressable>
-              </View>
-            </View>
+              ))
+            )}
           </View>
         )}
       </ScrollView>
@@ -454,5 +511,17 @@ const styles = StyleSheet.create({
   },
   activeNavText: {
     color: '#E0AAFF',
+  },
+  loadingText: {
+    fontSize: screenWidth * 0.035,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: screenHeight * 0.05,
+  },
+  noOrdersText: {
+    fontSize: screenWidth * 0.035,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: screenHeight * 0.05,
   },
 });

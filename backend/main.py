@@ -1,14 +1,18 @@
 from fastapi import FastAPI, Request, HTTPException, status
 from database import engine, Base
-from routers import auth, admin
+from routers import auth, admin, orders, cities, invoices
 from sqladmin import Admin
-from admin import UserAdmin
+from admin import UserAdmin, CityAdmin, OrderAdmin, InvoiceAdmin
 import base64
 import bcrypt
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import User
 from fastapi.responses import JSONResponse
+import os
+
+print(f"Current working directory: {os.getcwd()}")
+print(f"Database URL: {engine.url}")
 
 Base.metadata.create_all(bind=engine)
 
@@ -16,6 +20,9 @@ app = FastAPI()
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
+app.include_router(orders.router, prefix="/orders", tags=["orders"])
+app.include_router(cities.router, prefix="/cities", tags=["cities"])
+app.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
 
 # Middleware for admin authentication
 @app.middleware("http")
@@ -61,9 +68,17 @@ async def admin_auth_middleware(request: Request, call_next):
     response = await call_next(request)
     return response
 
+# Force metadata refresh
+from sqlalchemy import MetaData
+metadata = MetaData()
+metadata.reflect(bind=engine)
+
 # Create and mount SQLAdmin
 sqladmin = Admin(app, engine, title="Admin Dashboard")
 sqladmin.add_view(UserAdmin)
+sqladmin.add_view(CityAdmin)
+sqladmin.add_view(OrderAdmin)
+sqladmin.add_view(InvoiceAdmin)
 
 @app.get("/")
 def read_root():

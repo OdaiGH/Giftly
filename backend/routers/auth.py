@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User
+from models import User, City
 from schemas import SendOTP, OTPVerify, Token, UpdateUserProfile, RefreshTokenRequest
 from auth import authenticate_user, create_access_token, create_refresh_token, create_jwt_tokens, revoke_user_tokens, generate_otp, get_user_by_phone, get_current_user, get_user_from_refresh_token
 from config import settings

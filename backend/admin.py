@@ -1,6 +1,6 @@
 from sqladmin import Admin, ModelView
 from database import engine
-from models import User
+from models import User, City, Order, Invoice
 from auth import verify_password
 from sqlalchemy.orm import Session
 from database import SessionLocal
@@ -8,15 +8,15 @@ from fastapi import Request, HTTPException, status
 import base64
 
 from sqladmin import ModelView
-from models import User
+from models import User, City, Order, Invoice
 from wtforms import DateField
 from datetime import date
 
 class UserAdmin(ModelView, model=User):
-    column_list = [User.id, User.phone_number, User.email, User.name, User.date_of_birth, User.is_verified, User.role, User.is_admin]
+    column_list = [User.id, User.phone_number, User.email, User.name, User.date_of_birth, User.is_verified, User.otp, User.otp_created_at, User.is_admin, User.role, User.admin_username, User.admin_password_hash, User.city_id]
     column_searchable_list = [User.phone_number, User.email, User.name]
     column_filters = [User.is_verified, User.role, User.is_admin]
-    form_columns = [User.phone_number, User.email, User.name, User.date_of_birth, User.is_verified, User.role, User.is_admin]
+    form_columns = [User.phone_number, User.email, User.name, User.date_of_birth, User.is_verified, User.otp, User.is_admin, User.role, User.admin_username, User.admin_password_hash, User.city_id]
 
     column_choices = {
         User.role: {
@@ -33,6 +33,47 @@ class UserAdmin(ModelView, model=User):
     form_args = {
         'date_of_birth': {
             'format': '%Y-%m-%d'
+        }
+    }
+
+class CityAdmin(ModelView, model=City):
+    __name__ = "Cities"
+    column_list = [City.id, City.name, City.icon, City.active]
+    column_searchable_list = [City.name]
+    column_filters = [City.active]
+    form_columns = [City.name, City.icon, City.active]
+
+class OrderAdmin(ModelView, model=Order):
+    column_list = [Order.id, Order.order_id, Order.created_by_user_id, Order.assigned_to_user_id, Order.description, Order.creation_date, Order.delivery_date, Order.status, Order.comments, Order.updated_at, Order.city_id]
+    column_searchable_list = [Order.order_id, Order.description]
+    column_filters = [Order.status, Order.city_id]
+    form_columns = [Order.order_id, Order.created_by_user_id, Order.assigned_to_user_id, Order.description, Order.delivery_date, Order.status, Order.comments, Order.city_id]
+
+    column_choices = {
+        Order.status: {
+            'new': 'New',
+            'received by courier': 'Received by Courier',
+            'paid': 'Paid',
+            'in progress to do': 'In Progress to Do',
+            'cancelled': 'Cancelled',
+            'done': 'Done',
+            'in progress to deliver': 'In Progress to Deliver'
+        }
+    }
+
+class InvoiceAdmin(ModelView, model=Invoice):
+    column_list = [Invoice.id, Invoice.invoice_id, Invoice.order_id, Invoice.full_amount, Invoice.service_fee, Invoice.order_only_price, Invoice.courier_fee, Invoice.status, Invoice.description, Invoice.comment, Invoice.sent_to_user_via_email, Invoice.sent_at, Invoice.due_date, Invoice.tax_amount, Invoice.discount_amount, Invoice.created_at, Invoice.updated_at]
+    column_searchable_list = [Invoice.invoice_id]
+    column_filters = [Invoice.status, Invoice.sent_to_user_via_email]
+    form_columns = [Invoice.invoice_id, Invoice.order_id, Invoice.full_amount, Invoice.service_fee, Invoice.order_only_price, Invoice.courier_fee, Invoice.status, Invoice.description, Invoice.comment, Invoice.sent_to_user_via_email, Invoice.sent_at, Invoice.due_date, Invoice.tax_amount, Invoice.discount_amount]
+
+    column_choices = {
+        Invoice.status: {
+            'new': 'New',
+            'paid': 'Paid',
+            'cancelled': 'Cancelled',
+            'refunded': 'Refunded',
+            'other': 'Other'
         }
     }
 
