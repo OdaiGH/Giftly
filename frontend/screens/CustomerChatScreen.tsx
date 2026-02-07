@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, Image, Modal, Alert, Keyboard } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,17 @@ import { cancelOrder, getOrder, OrderResponse } from '../api';
 interface Props {
   onBack: () => void;
   orderId?: string | null;
-  onShowInvoice?: (orderId: number) => void;
+  onShowInvoice?: (invoiceId: string) => void;
+  chatState?: {
+    messages: Message[];
+    input: string;
+    order: OrderResponse | null;
+  };
+  onChatStateChange?: (state: {
+    messages: Message[];
+    input: string;
+    order: OrderResponse | null;
+  }) => void;
 }
 
 const INITIAL_MESSAGES: Message[] = [
@@ -19,34 +29,67 @@ const INITIAL_MESSAGES: Message[] = [
   { id: '3', text: 'أبشر، جاري فحص الحالة مع المندوب الآن. انتظرني لحظة فضلاً.', sender: 'other', time: '10:02 ص' },
 ];
 
-export const CustomerChatScreen: React.FC<Props> = ({ onBack, orderId, onShowInvoice }) => {
+export const CustomerChatScreen: React.FC<Props> = ({ onBack, orderId, onShowInvoice, chatState, onChatStateChange }) => {
   const insets = useSafeAreaInsets();
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
-  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<Message[]>(chatState?.messages || INITIAL_MESSAGES);
+  const [input, setInput] = useState(chatState?.input || '');
   const [showCancelOptions, setShowCancelOptions] = useState(false);
   const [selectedReason, setSelectedReason] = useState('');
   const [customReason, setCustomReason] = useState('');
-  const [order, setOrder] = useState<OrderResponse | null>(null);
+  const [order, setOrder] = useState<OrderResponse | null>(chatState?.order || null);
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showErrorOverlay, setShowErrorOverlay] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const { token } = useAuth();
+  const onChatStateChangeRef = useRef(onChatStateChange);
 
+  // Update the ref whenever onChatStateChange changes
   useEffect(() => {
-    if (orderId && token) {
+    onChatStateChangeRef.current = onChatStateChange;
+  }, [onChatStateChange]);
+
+  // Initialize state when orderId or chatState changes
+  useEffect(() => {
+    if (chatState) {
+      setMessages(chatState.messages || INITIAL_MESSAGES);
+      setInput(chatState.input || '');
+      setOrder(chatState.order || null);
+    } else {
+      // Reset to initial state for new orders
+      setMessages(INITIAL_MESSAGES);
+      setInput('');
+      setOrder(null);
+    }
+
+    // Fetch order details if we have orderId and token
+    if (orderId && token && (!chatState?.order || chatState.order.order_id !== orderId)) {
       fetchOrderDetails();
     }
-  }, [orderId, token]);
+  }, [orderId, chatState, token]);
+
+
 
   const fetchOrderDetails = async () => {
-    if (!orderId || !token) return;
+    if (!orderId || !token) {
+      console.log('fetchOrderDetails: Missing orderId or token', { orderId, token: !!token });
+      return;
+    }
+    console.log('fetchOrderDetails: Fetching order with ID:', orderId);
     setLoadingOrder(true);
     try {
       const orderDetails = await getOrder(token, orderId);
+      console.log('fetchOrderDetails: Successfully fetched order:', JSON.stringify(orderDetails, null, 2));
+      console.log('fetchOrderDetails: Order invoice data:', orderDetails.invoice ? JSON.stringify(orderDetails.invoice, null, 2) : 'No invoice data');
       setOrder(orderDetails);
-    } catch (error) {
-      console.error('Failed to fetch order details:', error);
+    } catch (error: any) {
+      console.error('fetchOrderDetails: Failed to fetch order details:', error);
+      setErrorMessage(error.message || 'فشل في تحميل تفاصيل الطلب');
+      setShowErrorOverlay(true);
+      setTimeout(() => {
+        setShowErrorOverlay(false);
+        setErrorMessage('');
+      }, 3000);
     } finally {
       setLoadingOrder(false);
     }
@@ -76,16 +119,23 @@ export const CustomerChatScreen: React.FC<Props> = ({ onBack, orderId, onShowInv
   };
 
   const handleConfirmCancel = async () => {
-    if (!order || !token) return;
+    console.log('handleConfirmCancel: Called unexpectedly?');
+    if (!order || !token) {
+      console.log('handleConfirmCancel: Missing order or token', { order: !!order, token: !!token });
+      return;
+    }
 
     const reason = selectedReason === 'سبب آخر' ? customReason : selectedReason;
+    console.log('handleConfirmCancel: Reason selected:', reason);
     if (!reason.trim()) {
       Alert.alert('خطأ', 'يرجى اختيار سبب أو إدخال سبب مخصص');
       return;
     }
 
     try {
+      console.log('handleConfirmCancel: Calling cancelOrder API with order_id:', order.order_id);
       await cancelOrder(token, order.order_id, { reason });
+      console.log('handleConfirmCancel: Cancel order successful');
       setShowCancelOptions(false);
       setShowSuccessMessage(true);
 
@@ -100,7 +150,7 @@ export const CustomerChatScreen: React.FC<Props> = ({ onBack, orderId, onShowInv
         onBack();
       }, 3000);
     } catch (error: any) {
-      console.error('Failed to cancel order:', error);
+      console.error('handleConfirmCancel: Failed to cancel order:', error);
       setShowCancelOptions(false);
       setErrorMessage(error.message || 'فشل في إلغاء الطلب');
       setShowErrorOverlay(true);
@@ -140,7 +190,7 @@ export const CustomerChatScreen: React.FC<Props> = ({ onBack, orderId, onShowInv
               <Text style={styles.customerCareText}>خدمة العملاء</Text>
             </Pressable>
           )}
-          {order && order.status !== 'cancelled' && order.status !== 'done' && order.status !== 'paid' && (
+          {order && order.status !== 'cancelled' && order.status !== 'done' && order.status !== 'paid' && (!order.invoice || order.invoice.status !== 'paid') && (
             <Pressable onPress={() => setShowCancelOptions(true)} style={styles.cancelButton}>
               <Text style={styles.cancelText}>إلغاء الطلب</Text>
             </Pressable>
@@ -165,7 +215,10 @@ export const CustomerChatScreen: React.FC<Props> = ({ onBack, orderId, onShowInv
       {/* Input Area */}
       <View style={styles.inputArea}>
         {order && order.invoice && onShowInvoice && (
-          <Pressable onPress={() => onShowInvoice(order.id)} style={styles.invoiceButtonBottom}>
+          <Pressable onPress={() => {
+            console.log(`you have clicked on invoice number ${order.invoice.invoice_id} for order id ${order.id}`);
+            onShowInvoice(order.invoice.invoice_id);
+          }} style={styles.invoiceButtonBottom}>
             <Feather name="file-text" size={16} color="#E0AAFF" />
             <Text style={styles.invoiceButtonTextBottom}>عرض الفاتورة</Text>
           </Pressable>

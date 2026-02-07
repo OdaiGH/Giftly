@@ -60,6 +60,7 @@ export interface OrderResponse {
   comments: string | null;
   updated_at: string;
   city_id: number;
+  invoice?: InvoiceResponse | null;
 }
 
 export const createOrder = async (token: string, data: CreateOrderRequest): Promise<OrderResponse> => {
@@ -339,8 +340,31 @@ export const getInvoiceByOrder = async (token: string, orderId: number): Promise
   return response.json();
 };
 
-export const downloadInvoicePDF = async (token: string, orderId: number): Promise<Blob> => {
-  const response = await fetch(`${API_BASE_URL}/invoices/order/${orderId}/pdf`, {
+export const getInvoice = async (token: string, invoiceId: string): Promise<InvoiceResponse> => {
+  const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to fetch invoice';
+    try {
+      const error = await response.json();
+      errorMessage = error.detail || errorMessage;
+    } catch (e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+};
+
+export const downloadInvoicePDF = async (token: string, invoiceId: number): Promise<Blob> => {
+  const response = await fetch(`${API_BASE_URL}/invoices/id/${invoiceId}/pdf`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,

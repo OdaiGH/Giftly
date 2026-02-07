@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions, Modal, TextInput, Alert, Keyboard } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions, Modal, TextInput, Alert, Keyboard, RefreshControl } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../App';
@@ -12,15 +12,16 @@ interface Props {
   onNavigateProfile: () => void;
   onNavigateCourier: () => void;
   onStartOrder: () => void;
-  onShowInvoice: (orderId: number) => void;
+  onShowInvoice: (invoiceId: string) => void;
   onNavigateToOrderChat: (orderId: string) => void;
   initialTab?: 'home' | 'orders';
+  ordersData?: any[];
+  onOrdersDataChange?: (orders: any[]) => void;
 }
 
-export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCourier, onStartOrder, onShowInvoice, onNavigateToOrderChat, initialTab }) => {
+export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCourier, onStartOrder, onShowInvoice, onNavigateToOrderChat, initialTab, ordersData, onOrdersDataChange }) => {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'home' | 'orders'>('home');
-  const [orders, setOrders] = useState<OrderResponse[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
@@ -35,16 +36,19 @@ export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCouri
   }, [initialTab]);
 
   useEffect(() => {
-    if (activeTab === 'orders' && token) {
+    if (token && activeTab === 'orders' && (!ordersData || ordersData.length === 0)) {
       fetchOrders();
     }
-  }, [activeTab, token]);
+  }, [token, activeTab, ordersData]);
 
   const fetchOrders = async () => {
     if (!token) return;
     setLoadingOrders(true);
     try {
       const userOrders = await getUserOrders(token);
+
+      console.log('طلباتك - Orders fetched from API:', JSON.stringify(userOrders, null, 2));
+      console.log('طلباتك - Number of orders:', userOrders.length);
 
       // Sort orders: Cancelled orders last, all others by creation date (newest first)
       const sortedOrders = userOrders.sort((a, b) => {
@@ -58,7 +62,12 @@ export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCouri
         return dateB - dateA;
       });
 
-      setOrders(sortedOrders);
+      console.log('طلباتك - Orders after sorting:', JSON.stringify(sortedOrders, null, 2));
+      console.log('طلباتك - Sorted orders count:', sortedOrders.length);
+
+      if (onOrdersDataChange) {
+        onOrdersDataChange(sortedOrders);
+      }
     } catch (error) {
       console.error('Failed to fetch orders:', error);
     } finally {
@@ -138,7 +147,20 @@ export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCouri
       </View>
 
       {/* Content */}
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          activeTab === 'orders' ? (
+            <RefreshControl
+              refreshing={loadingOrders}
+              onRefresh={fetchOrders}
+              colors={['#E0AAFF']}
+              tintColor="#E0AAFF"
+            />
+          ) : undefined
+        }
+      >
         {activeTab === 'home' ? (
           <View style={styles.homeContent}>
             {/* Hero Card */}
@@ -190,11 +212,14 @@ export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCouri
             <Text style={styles.sectionTitle}>طلباتك</Text>
             {loadingOrders ? (
               <Text style={styles.loadingText}>جاري تحميل الطلبات...</Text>
-            ) : orders.length === 0 ? (
+            ) : (!ordersData || ordersData.length === 0) ? (
               <Text style={styles.noOrdersText}>لا توجد طلبات بعد</Text>
             ) : (
-              orders.map((order) => (
-                <Pressable key={order.id} style={styles.orderItem} onPress={() => onNavigateToOrderChat(order.order_id)}>
+              ordersData.map((order) => (
+                <Pressable key={order.id} style={styles.orderItem} onPress={() => {
+                  console.log(`you have clicked on order ${order.order_id} to go to chat`);
+                  onNavigateToOrderChat(order.order_id);
+                }}>
                   <View style={styles.orderHeader}>
                     <View style={styles.orderIcon}>
                       <Feather name="package" size={18} color="#E0AAFF" />
@@ -215,7 +240,10 @@ export const HomeScreen: React.FC<Props> = ({ onNavigateProfile, onNavigateCouri
                   </View>
                 </View>
                 {order.invoice && (
-                  <Pressable onPress={() => onShowInvoice(order.id)} style={styles.invoiceButton}>
+                  <Pressable onPress={() => {
+                    console.log(`you have clicked on invoice number ${order.invoice.invoice_id} for order id ${order.id}`);
+                    onShowInvoice(order.invoice.invoice_id);
+                  }} style={styles.invoiceButton}>
                     <Text style={styles.invoiceButtonText}>عرض الفاتورة</Text>
                   </Pressable>
                 )}

@@ -1,37 +1,40 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform, Linking } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform, Linking, Modal } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { WebView } from 'react-native-webview';
 import { useAuth } from '../App';
-import { getInvoiceByOrder, InvoiceResponse } from '../api';
+import { InvoiceResponse } from '../api';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'https://971c-37-106-14-206.ngrok-free.app';
 
 interface Props {
   onBack: () => void;
-  orderId: number;
+  invoiceId: string;
 }
 
-export const InvoiceScreen: React.FC<Props> = ({ onBack, orderId }) => {
+export const InvoiceScreen: React.FC<Props> = ({ onBack, invoiceId }) => {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
   const [invoice, setInvoice] = useState<InvoiceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPdfViewer, setShowPdfViewer] = useState(false);
 
   useEffect(() => {
     fetchInvoice();
-  }, [orderId, token]);
+  }, [invoiceId, token]);
 
   const fetchInvoice = async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      const invoiceData = await getInvoiceByOrder(token, orderId);
+      const { getInvoice } = await import('../api');
+      const invoiceData = await getInvoice(token, invoiceId);
       console.log('Invoice status received:', invoiceData.status); // Debug log
       setInvoice(invoiceData);
     } catch (err) {
@@ -128,27 +131,14 @@ export const InvoiceScreen: React.FC<Props> = ({ onBack, orderId }) => {
   const statusConfig = getStatusConfig(invoice.status);
 
   const handleDownloadPDF = async () => {
-    if (!token) return;
+    if (!token || !invoice) return;
 
     try {
-      console.log('Starting inline PDF download...');
+      console.log('Starting PDF download...');
 
-      // Download the PDF with proper authentication
-      const response = await fetch(`${API_BASE_URL}/invoices/order/${orderId}/pdf`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      // Get the blob
-      const blob = await response.blob();
+      // Download the PDF with proper authentication using the database ID
+      const { downloadInvoicePDF } = await import('../api');
+      const blob = await downloadInvoicePDF(token, invoice.id);
       console.log('Blob received, size:', blob.size);
 
       if (blob.size === 0) {
@@ -163,7 +153,7 @@ export const InvoiceScreen: React.FC<Props> = ({ onBack, orderId }) => {
 
       // Write file to device
       await FileSystem.writeAsStringAsync(fileUri, base64, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
 
       console.log('PDF saved to:', fileUri);
@@ -328,52 +318,56 @@ export const InvoiceScreen: React.FC<Props> = ({ onBack, orderId }) => {
           </View>
         </View>
 
-        {/* Payment Section - Only show if invoice is new (unpaid) */}
-        {invoice.status === 'new' && (
-          <View style={styles.paymentSection}>
-            <Text style={styles.paymentTitle}>الدفع</Text>
-            <Text style={styles.paymentSubtitle}>اختر طريقة الدفع المناسبة لك</Text>
 
-            <View style={styles.paymentOptions}>
-              {/* Apple Pay Button */}
-              <Pressable onPress={() => handlePayment('apple_pay')} style={styles.applePayButton}>
-                <Text style={styles.applePayText}> Pay</Text>
-              </Pressable>
 
-              {/* Credit Card Button */}
-              <Pressable onPress={() => handlePayment('credit_card')} style={styles.paymentButton}>
-                <View style={styles.paymentIcon}>
-                  <Feather name="credit-card" size={20} color="#E0AAFF" />
-                </View>
-                <View style={styles.paymentText}>
-                  <Text style={styles.paymentButtonTitle}>بطاقة ائتمان</Text>
-                  <Text style={styles.paymentButtonSubtitle}>فيزا، ماستركارد، إلخ</Text>
-                </View>
-                <Feather name="chevron-left" size={20} color="#666" />
-              </Pressable>
-
-              {/* Mada Button */}
-              <Pressable onPress={() => handlePayment('mada')} style={styles.madaButton}>
-                <View style={styles.madaIcon}>
-                  <Text style={styles.madaText}>مدى</Text>
-                </View>
-                <View style={styles.paymentText}>
-                  <Text style={styles.paymentButtonTitle}>مدى</Text>
-                  <Text style={styles.paymentButtonSubtitle}>البطاقة الوطنية السعودية</Text>
-                </View>
-                <Feather name="chevron-left" size={20} color="#666" />
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {/* Download Button - Always show */}
-        <View style={styles.singleButtonContainer}>
+        {/* Action Buttons - Always show */}
+        <View style={styles.buttonContainer}>
+          <Pressable onPress={() => setShowPdfViewer(true)} style={styles.viewButton}>
+            <Feather name="eye" size={18} color="#E0AAFF" />
+            <Text style={styles.viewButtonText}>عرض الفاتورة</Text>
+          </Pressable>
           <Pressable onPress={handleDownloadPDF} style={styles.saveButton}>
             <Feather name="download" size={18} color="white" />
             <Text style={styles.saveButtonText}>حفظ PDF</Text>
           </Pressable>
         </View>
+
+        {/* PDF Viewer Modal */}
+        <Modal
+          visible={showPdfViewer}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowPdfViewer(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Pressable onPress={() => setShowPdfViewer(false)} style={styles.closeButton}>
+                <Feather name="x" size={24} color="#6B7280" />
+              </Pressable>
+              <Text style={styles.modalTitle}>عرض الفاتورة</Text>
+              <View style={styles.modalSpacer} />
+            </View>
+            <WebView
+              source={{
+                uri: `${API_BASE_URL}/invoices/id/${invoice.id}/pdf`,
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }}
+              style={styles.webView}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={true}
+              scalesPageToFit={true}
+              onError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.warn('WebView error: ', nativeEvent);
+                Alert.alert('خطأ', 'فشل في تحميل الفاتورة');
+                setShowPdfViewer(false);
+              }}
+            />
+          </View>
+        </Modal>
 
       </ScrollView>
     </View>
@@ -417,13 +411,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    gap: 16,
+    padding: 12,
+    gap: 12,
   },
   receiptCard: {
     backgroundColor: 'white',
-    borderRadius: 40,
-    padding: 24,
+    borderRadius: 32,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -436,15 +430,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.2)',
     alignSelf: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   statusText: {
     fontSize: 10,
@@ -454,22 +448,22 @@ const styles = StyleSheet.create({
   },
   brandInfo: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   brandIcon: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
     backgroundColor: 'rgba(224, 170, 255, 0.1)',
-    borderRadius: 16,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   brandName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   invoiceDetails: {
     flexDirection: 'row',
@@ -498,7 +492,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 14,
+    padding: 10,
   },
   priceRowBorder: {
     borderTopWidth: 1,
@@ -515,12 +509,12 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   totalsSection: {
-    marginTop: 24,
-    paddingTop: 16,
+    marginTop: 16,
+    paddingTop: 12,
     borderTopWidth: 2,
     borderTopColor: '#F3F4F6',
     borderStyle: 'dashed',
-    gap: 8,
+    gap: 6,
   },
   totalRow: {
     flexDirection: 'row',
@@ -541,12 +535,12 @@ const styles = StyleSheet.create({
   },
   totalAmount: {
     backgroundColor: '#E0AAFF',
-    borderRadius: 32,
-    padding: 20,
+    borderRadius: 24,
+    padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 8,
   },
   totalAmountLeft: {
     gap: 4,
@@ -580,7 +574,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 24,
+    marginTop: 16,
   },
   footerText: {
     fontSize: 8,
@@ -593,7 +587,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveButton: {
-    width: '80%',
+    flex: 1,
     height: 56,
     backgroundColor: '#E0AAFF',
     borderRadius: 16,
@@ -774,5 +768,55 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+  },
+  viewButton: {
+    flex: 1,
+    height: 56,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#E0AAFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  viewButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#E0AAFF',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    backgroundColor: 'white',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  modalSpacer: {
+    width: 40,
+  },
+  webView: {
+    flex: 1,
   },
 });

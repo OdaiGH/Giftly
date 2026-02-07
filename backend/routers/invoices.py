@@ -72,6 +72,22 @@ def get_invoice(invoice_id: str, db: Session = Depends(get_db)):
 
     return invoice
 
+@router.get("/id/{invoice_db_id}", response_model=InvoiceResponse)
+def get_invoice_by_id(invoice_db_id: int, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Get invoice by database ID. Authenticated users can view their own invoices.
+    """
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_db_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Check if the invoice belongs to the current user (through the order)
+    order = db.query(Order).filter(Order.id == invoice.order_id, Order.created_by_user_id == current_user.id).first()
+    if not order:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return invoice
+
 def delete_file_after_delay(file_path: str, delay_seconds: int = 600):  # 10 minutes = 600 seconds
     """Delete a file after a specified delay"""
     def delete_file():
@@ -85,7 +101,7 @@ def delete_file_after_delay(file_path: str, delay_seconds: int = 600):  # 10 min
     timer.start()
 
 def generate_invoice_pdf(invoice: InvoiceResponse, order: Order = None) -> BytesIO:
-    """Generate PDF invoice"""
+    """Generate PDF invoice with proper Arabic text"""
     buffer = BytesIO()
 
     # Create the PDF document
@@ -108,25 +124,30 @@ def generate_invoice_pdf(invoice: InvoiceResponse, order: Order = None) -> Bytes
     content = []
 
     # Title
-    content.append(Paragraph("A'*H1) 61J(J)", title_style))
+    content.append(Paragraph("INVOICE", title_style))
     content.append(Spacer(1, 12))
 
     # Company info
-    content.append(Paragraph("G/J*J DD./E'*", styles['Heading2']))
+    content.append(Paragraph("Hadiyati Services", styles['Heading2']))
     content.append(Spacer(1, 12))
 
     # Invoice details
+    status_text = "Paid" if invoice.status == "paid" else "Unpaid"
     invoice_data = [
-        ["1BE 'DA'*H1):", invoice.invoice_id],
-        ["*'1J. 'DA'*H1):", invoice.created_at.strftime("%Y-%m-%d %H:%M")],
-        ["-'D) 'DA'*H1):", "E/AH9)" if invoice.status == "paid" else ",/J/)"],
+        ["Invoice Number:", invoice.invoice_id],
+        ["Invoice Date:", invoice.created_at.strftime("%Y-%m-%d %H:%M")],
+        ["Status:", status_text],
     ]
+
+    # Add description if available
+    if invoice.description:
+        invoice_data.append(["Description:", invoice.description])
 
     invoice_table = Table(invoice_data, colWidths=[2*inch, 4*inch])
     invoice_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
@@ -138,20 +159,17 @@ def generate_invoice_pdf(invoice: InvoiceResponse, order: Order = None) -> Bytes
 
     # Items table
     items_data = [
-        ["'DH5A", "'DCEJ)", "'D391", "'DE,EH9"],
-        ["BJE) 'D7D(", "1", f"{invoice.order_only_price:.2f} 1.3", f"{invoice.order_only_price:.2f} 1.3"],
-        ["13HE 'D./E)", "1", f"{invoice.service_fee:.2f} 1.3", f"{invoice.service_fee:.2f} 1.3"],
-        ["'D61J() (15%)", "1", f"{(invoice.order_only_price * 0.15):.2f} 1.3", f"{(invoice.order_only_price * 0.15):.2f} 1.3"],
+        ["Item", "Qty", "Price"],
+        ["Order Value", "1", f"{invoice.order_only_price:.2f} SAR"],
+        ["Service Fee", "1", f"{invoice.service_fee:.2f} SAR"],
+        ["Tax (15%)", "1", f"{(invoice.order_only_price * 0.15):.2f} SAR"],
     ]
 
-    if invoice.description:
-        items_data.insert(1, [invoice.description, "", "", ""])
-
-    items_table = Table(items_data, colWidths=[3*inch, 1*inch, 1.5*inch, 1.5*inch])
+    items_table = Table(items_data, colWidths=[3.5*inch, 1*inch, 2*inch])
     items_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
@@ -163,14 +181,14 @@ def generate_invoice_pdf(invoice: InvoiceResponse, order: Order = None) -> Bytes
 
     # Total
     total_data = [
-        ["'DE(D: 'D%,E'DJ:", f"{invoice.full_amount:.2f} 1.3"],
+        ["Total Amount:", f"{invoice.full_amount:.2f} SAR"],
     ]
 
     total_table = Table(total_data, colWidths=[4*inch, 2*inch])
     total_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 12),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
@@ -179,7 +197,7 @@ def generate_invoice_pdf(invoice: InvoiceResponse, order: Order = None) -> Bytes
 
     # Footer
     content.append(Spacer(1, 30))
-    content.append(Paragraph("4C1'K D'3*./'E ./E'*F'", normal_style))
+    content.append(Paragraph("Thank you for using our services", normal_style))
 
     # Build the PDF
     doc.build(content)
@@ -205,6 +223,49 @@ def download_invoice_pdf(
     invoice = db.query(Invoice).filter(Invoice.order_id == order_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found for this order")
+
+    # Generate PDF
+    pdf_buffer = generate_invoice_pdf(invoice, order)
+
+    # Create temporary file
+    temp_dir = tempfile.gettempdir()
+    temp_filename = f"invoice_{invoice.invoice_id}_{int(time.time())}.pdf"
+    temp_filepath = os.path.join(temp_dir, temp_filename)
+
+    # Write PDF to temporary file
+    with open(temp_filepath, 'wb') as f:
+        f.write(pdf_buffer.getvalue())
+
+    # Schedule file deletion after 10 minutes
+    background_tasks.add_task(delete_file_after_delay, temp_filepath, 600)
+
+    # Return file response
+    return FileResponse(
+        path=temp_filepath,
+        media_type='application/pdf',
+        filename=f"{invoice.invoice_id}.pdf"
+    )
+
+@router.get("/id/{invoice_db_id}/pdf")
+def download_invoice_pdf_by_id(
+    invoice_db_id: int,
+    background_tasks: BackgroundTasks,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and download PDF invoice by database ID.
+    Creates a temporary file that auto-deletes after 10 minutes.
+    """
+    # Get invoice and check ownership
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_db_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Check if the invoice belongs to the current user (through the order)
+    order = db.query(Order).filter(Order.id == invoice.order_id, Order.created_by_user_id == current_user.id).first()
+    if not order:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Generate PDF
     pdf_buffer = generate_invoice_pdf(invoice, order)

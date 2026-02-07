@@ -1,4 +1,4 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { WelcomeScreen } from './screens/WelcomeScreen';
@@ -14,6 +14,7 @@ import { SearchingExpertScreen } from './screens/SearchingExpertScreen';
 import { CourierHomeScreen } from './screens/CourierHomeScreen';
 import { CourierLoginScreen } from './screens/CourierLoginScreen';
 import { InvoiceScreen } from './screens/InvoiceScreen';
+import { Message } from './types';
 
 type Screen = 'welcome' | 'login' | 'profile' | 'home' | 'budget' | 'citySelection' | 'userProfile' | 'courierChat' | 'customerChat' | 'searchingExpert' | 'courierLogin' | 'courierHome' | 'invoice';
 
@@ -93,9 +94,42 @@ const AppContent: React.FC = () => {
   const [authData, setAuthData] = useState<{ phone: string; otp?: string; token?: string } | null>(null);
   const [orderData, setOrderData] = useState<{ description?: string; cityId?: number; deliveryDate?: Date } | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [initialHomeTab, setInitialHomeTab] = useState<'home' | 'orders'>('home');
   const [previousScreen, setPreviousScreen] = useState<Screen>('home');
-  const { login } = useAuth();
+  const [chatStates, setChatStates] = useState<{
+    [orderId: string]: {
+      messages: Message[];
+      input: string;
+      order: any;
+    };
+  }>({});
+  const [ordersData, setOrdersData] = useState<any[]>([]);
+  const { login, token } = useAuth();
+
+  const fetchOrders = async () => {
+    if (!token) return;
+    try {
+      const { getUserOrders } = await import('./api');
+      const userOrders = await getUserOrders(token);
+
+      // Sort orders: Cancelled orders last, all others by creation date (newest first)
+      const sortedOrders = userOrders.sort((a, b) => {
+        // First priority: Non-cancelled orders come before cancelled orders
+        if (a.status === 'cancelled' && b.status !== 'cancelled') return 1;
+        if (a.status !== 'cancelled' && b.status === 'cancelled') return -1;
+
+        // Second priority: Sort by creation date (newest first)
+        const dateA = new Date(a.creation_date).getTime();
+        const dateB = new Date(b.creation_date).getTime();
+        return dateB - dateA;
+      });
+
+      setOrdersData(sortedOrders);
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+    }
+  };
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
@@ -141,9 +175,9 @@ const AppContent: React.FC = () => {
             onNavigateProfile={() => setCurrentScreen('userProfile')}
             onNavigateCourier={() => setCurrentScreen('courierChat')}
             onStartOrder={() => setCurrentScreen('budget')}
-            onShowInvoice={(orderId) => {
+            onShowInvoice={(invoiceId) => {
               setPreviousScreen('home');
-              setSelectedOrderId(orderId.toString());
+              setCurrentOrderId(invoiceId);
               setCurrentScreen('invoice');
             }}
             onNavigateToOrderChat={(orderId) => {
@@ -151,6 +185,8 @@ const AppContent: React.FC = () => {
               setCurrentScreen('customerChat');
             }}
             initialTab={initialHomeTab}
+            ordersData={ordersData}
+            onOrdersDataChange={setOrdersData}
           />
         );
       case 'budget':
@@ -184,16 +220,44 @@ const AppContent: React.FC = () => {
       case 'courierChat':
         return <CourierChatScreen userRole="customer" onBack={() => setCurrentScreen('home')} onFinishOrder={() => {}} onShowInvoice={() => {}} />;
       case 'customerChat':
+        console.log('App.tsx: Rendering CustomerChatScreen with selectedOrderId:', selectedOrderId);
+        const currentChatState = selectedOrderId ? chatStates[selectedOrderId] : null;
+        const handleChatStateChange = useCallback((state: { messages: Message[]; input: string; order: any }) => {
+          if (selectedOrderId) {
+            setChatStates(prev => ({
+              ...prev,
+              [selectedOrderId]: state
+            }));
+          }
+        }, [selectedOrderId]);
         return <CustomerChatScreen
           orderId={selectedOrderId}
+          chatState={currentChatState}
+          onChatStateChange={handleChatStateChange}
           onShowInvoice={(orderId) => {
+            console.log('App.tsx: onShowInvoice called with orderId:', orderId);
             setPreviousScreen('customerChat');
-            setSelectedOrderId(orderId.toString());
+            setCurrentOrderId(orderId);
             setCurrentScreen('invoice');
           }}
           onBack={() => {
             setInitialHomeTab('orders');
             setCurrentScreen('home');
+          }}
+        />;
+      case 'invoice':
+        return <InvoiceScreen
+          key={currentOrderId}
+          invoiceId={currentOrderId || 0}
+          onBack={() => {
+            if (previousScreen === 'customerChat') {
+              setCurrentScreen('customerChat');
+            } else if (previousScreen === 'home') {
+              setInitialHomeTab('orders');
+              setCurrentScreen('home');
+            } else {
+              setCurrentScreen(previousScreen);
+            }
           }}
         />;
       case 'searchingExpert':
@@ -215,20 +279,6 @@ const AppContent: React.FC = () => {
           isDarkMode={isDarkMode}
           toggleDarkMode={toggleDarkMode}
           theme={theme}
-        />;
-      case 'invoice':
-        return <InvoiceScreen
-          orderId={parseInt(selectedOrderId || '0')}
-          onBack={() => {
-            if (previousScreen === 'customerChat') {
-              setCurrentScreen('customerChat');
-            } else if (previousScreen === 'home') {
-              setInitialHomeTab('orders');
-              setCurrentScreen('home');
-            } else {
-              setCurrentScreen(previousScreen);
-            }
-          }}
         />;
       default:
         return <WelcomeScreen onStart={() => setCurrentScreen('login')} />;

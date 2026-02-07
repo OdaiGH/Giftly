@@ -142,7 +142,7 @@ export const LoginScreen: React.FC<Props> = ({ onNext }) => {
                 if (phoneError) setPhoneError('');
               }}
               keyboardType="phone-pad"
-              maxLength={10}
+              maxLength={9}
               placeholderTextColor="#9CA3AF"
             />
             <View style={styles.phoneIcon}>
