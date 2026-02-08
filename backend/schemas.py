@@ -190,3 +190,45 @@ class CreateInvoice(BaseModel):
 
 class CancelOrderRequest(BaseModel):
     reason: str
+
+class AssignOrderRequest(BaseModel):
+    assigned_to_user_id: int
+
+# Chat schemas
+class CreateConversationRequest(BaseModel):
+    other_user_id: int  # The ID of the other user (customer or courier)
+
+class ConversationResponse(BaseModel):
+    id: int
+    customer_id: int
+    courier_id: int
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class SendMessageRequest(BaseModel):
+    content: str
+    message_type: str = "text"  # "text" or "invoice"
+    invoice_description: Optional[str] = None
+    invoice_gift_price: Optional[int] = None
+    invoice_service_fee: Optional[int] = None
+    invoice_delivery_fee: Optional[int] = None
+    invoice_total: Optional[int] = None
+
+class MessageResponse(BaseModel):
+    id: int
+    conversation_id: int
+    sender_id: int
+    content: str
+    sent_at: datetime
+    message_type: str
+    invoice_description: Optional[str]
+    invoice_gift_price: Optional[int]
+    invoice_service_fee: Optional[int]
+    invoice_delivery_fee: Optional[int]
+    invoice_total: Optional[int]
+
+    class Config:
+        from_attributes = True

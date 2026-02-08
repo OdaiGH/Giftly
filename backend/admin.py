@@ -1,14 +1,11 @@
 from sqladmin import Admin, ModelView
 from database import engine
-from models import User, City, Order, Invoice
+from models import User, City, Order, Invoice, Conversation, Message
 from auth import verify_password
 from sqlalchemy.orm import Session
-from database import SessionLocal
+from database import AsyncSessionLocal as SessionLocal
 from fastapi import Request, HTTPException, status
 import base64
-
-from sqladmin import ModelView
-from models import User, City, Order, Invoice
 from wtforms import DateField
 from datetime import date
 
@@ -74,6 +71,33 @@ class InvoiceAdmin(ModelView, model=Invoice):
             'cancelled': 'Cancelled',
             'refunded': 'Refunded',
             'other': 'Other'
+        }
+    }
+
+class ConversationAdmin(ModelView, model=Conversation):
+    column_list = [Conversation.id, Conversation.customer_id, Conversation.courier_id, Conversation.status, Conversation.created_at]
+    column_searchable_list = [Conversation.customer_id, Conversation.courier_id]
+    column_filters = [Conversation.status]
+    form_columns = [Conversation.customer_id, Conversation.courier_id, Conversation.status]
+
+    column_choices = {
+        Conversation.status: {
+            'active': 'Active',
+            'inactive': 'Inactive',
+            'closed': 'Closed'
+        }
+    }
+
+class MessageAdmin(ModelView, model=Message):
+    column_list = [Message.id, Message.conversation_id, Message.sender_id, Message.content, Message.sent_at, Message.message_type]
+    column_searchable_list = [Message.content]
+    column_filters = [Message.message_type, Message.conversation_id, Message.sender_id]
+    form_columns = [Message.conversation_id, Message.sender_id, Message.content, Message.message_type, Message.invoice_description, Message.invoice_gift_price, Message.invoice_service_fee, Message.invoice_delivery_fee, Message.invoice_total]
+
+    column_choices = {
+        Message.message_type: {
+            'text': 'Text',
+            'invoice': 'Invoice'
         }
     }
 

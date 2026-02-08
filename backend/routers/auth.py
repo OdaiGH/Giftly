@@ -1,19 +1,20 @@
 import re
 from datetime import datetime, timedelta, date
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
-from database import get_db
+from database import get_db, get_db_sync
 from models import User, City
 from schemas import SendOTP, OTPVerify, Token, UpdateUserProfile, RefreshTokenRequest
-from auth import authenticate_user, create_access_token, create_refresh_token, create_jwt_tokens, revoke_user_tokens, generate_otp, get_user_by_phone, get_current_user, get_user_from_refresh_token
+from auth import authenticate_user, create_access_token, create_refresh_token, create_jwt_tokens, create_jwt_tokens_async, revoke_user_tokens, generate_otp, get_user_by_phone, get_current_user, get_user_from_refresh_token
 from config import settings
 
 router = APIRouter()
 
 @router.post("/send-otp", response_model=dict)
-def send_otp(otp_request: SendOTP, db: Session = Depends(get_db)):
+async def send_otp(otp_request: SendOTP, db: AsyncSession = Depends(get_db)):
     phone_number = otp_request.phone_number
-    user = get_user_by_phone(db, phone_number)
+    user = await get_user_by_phone(db, phone_number)
 
     otp = generate_otp()
     print(f"OTP for {phone_number}: {otp}")  # Log the OTP
@@ -21,25 +22,25 @@ def send_otp(otp_request: SendOTP, db: Session = Depends(get_db)):
     if user:
         # Invalidate previous OTP
         user.otp = None
-        db.commit()
+        await db.commit()
         # Set new OTP with timestamp
         user.otp = otp
         user.otp_created_at = datetime.utcnow()
-        db.commit()
+        await db.commit()
     else:
         # Create temp user with OTP
         user = User(phone_number=phone_number, otp=otp)
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
 
     return {"message": "OTP sent successfully", "otp": otp}
 
 @router.post("/verify-otp", response_model=Token)
-def verify_otp(otp_data: OTPVerify, db: Session = Depends(get_db)):
+async def verify_otp(otp_data: OTPVerify, db: AsyncSession = Depends(get_db)):
     from datetime import datetime, timedelta
 
-    user = get_user_by_phone(db, otp_data.phone_number)
+    user = await get_user_by_phone(db, otp_data.phone_number)
     if not user:
         print(f"Error: User not found for phone {otp_data.phone_number}")
         raise HTTPException(status_code=400, detail="User not found")
@@ -61,7 +62,7 @@ def verify_otp(otp_data: OTPVerify, db: Session = Depends(get_db)):
 
     if user.is_verified:
         # Existing user with complete profile, login
-        access_token, refresh_token = create_jwt_tokens(db, user)
+        access_token, refresh_token = await create_jwt_tokens_async(db, user)
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -95,7 +96,7 @@ def read_current_user(current_user: User = Depends(get_current_user)):
     }
 
 @router.put("/me", response_model=dict)
-def update_current_user(user_update: UpdateUserProfile, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_current_user(user_update: UpdateUserProfile, current_user: User = Depends(get_current_user), db: Session = Depends(get_db_sync)):
     errors = {}
 
     # Validate name
@@ -149,7 +150,7 @@ def update_current_user(user_update: UpdateUserProfile, current_user: User = Dep
     }
 
 @router.post("/refresh", response_model=Token)
-def refresh_access_token(refresh_request: RefreshTokenRequest, db: Session = Depends(get_db)):
+def refresh_access_token(refresh_request: RefreshTokenRequest, db: Session = Depends(get_db_sync)):
     user = get_user_from_refresh_token(refresh_request.refresh_token, db)
 
     # Revoke the old refresh token
@@ -162,7 +163,7 @@ def refresh_access_token(refresh_request: RefreshTokenRequest, db: Session = Dep
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 @router.post("/complete-profile", response_model=Token)
-def complete_profile(profile_data: dict, db: Session = Depends(get_db)):
+def complete_profile(profile_data: dict, db: Session = Depends(get_db_sync)):
     """Complete profile for new users after OTP verification"""
     # Extract data from request
     phone_number = profile_data.get("phone_number")
@@ -179,7 +180,7 @@ def complete_profile(profile_data: dict, db: Session = Depends(get_db)):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    user = get_user_by_phone(db, phone_number)
+    user = get_user_by_phone_sync(db, phone_number)
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
 
@@ -213,7 +214,7 @@ def complete_profile(profile_data: dict, db: Session = Depends(get_db)):
     }
 
 @router.post("/logout")
-def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db_sync)):
     """Logout user by revoking all their tokens"""
     revoke_user_tokens(db, current_user.id)
     return {"message": "Successfully logged out"}

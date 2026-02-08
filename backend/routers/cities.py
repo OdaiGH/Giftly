@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from database import get_db
+from database import get_db, get_db_sync
 from models import City
 from schemas import CityResponse
 
 router = APIRouter()
 
 @router.get("/", response_model=list[CityResponse])
-def get_active_cities(db: Session = Depends(get_db)):
+def get_active_cities(db: Session = Depends(get_db_sync)):
     """Get all active cities. Public endpoint."""
     cities = db.query(City).filter(City.active == True).all()
     return cities

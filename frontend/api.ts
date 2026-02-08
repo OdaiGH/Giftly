@@ -414,3 +414,130 @@ export const completeProfile = async (data: CompleteProfileRequest): Promise<Tok
 
   return response.json();
 };
+
+// Chat API functions
+export interface ChatMessage {
+  id: number;
+  conversation_id: number;
+  sender_id: number;
+  content: string;
+  sent_at: string;
+  message_type: string;
+  invoice_description?: string;
+  invoice_gift_price?: number;
+  invoice_service_fee?: number;
+  invoice_delivery_fee?: number;
+  invoice_total?: number;
+}
+
+export interface Conversation {
+  id: number;
+  customer_id: number;
+  courier_id: number;
+  status: string;
+  created_at: string;
+}
+
+export interface SendMessageRequest {
+  content: string;
+  message_type?: string;
+  invoice_description?: string;
+  invoice_gift_price?: number;
+  invoice_service_fee?: number;
+  invoice_delivery_fee?: number;
+  invoice_total?: number;
+}
+
+export const getConversationMessages = async (token: string, conversationId: number, skip: number = 0, limit: number = 50): Promise<ChatMessage[]> => {
+  const response = await fetch(`${API_BASE_URL}/chat/conversations/${conversationId}/messages?skip=${skip}&limit=${limit}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to fetch messages';
+    try {
+      const error = await response.json();
+      errorMessage = error.detail || errorMessage;
+    } catch (e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+};
+
+export const sendMessage = async (token: string, conversationId: number, message: SendMessageRequest): Promise<ChatMessage> => {
+  const response = await fetch(`${API_BASE_URL}/chat/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(message),
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to send message';
+    try {
+      const error = await response.json();
+      errorMessage = error.detail || errorMessage;
+    } catch (e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+};
+
+export const getUserConversations = async (token: string): Promise<Conversation[]> => {
+  const response = await fetch(`${API_BASE_URL}/chat/conversations`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to fetch conversations';
+    try {
+      const error = await response.json();
+      errorMessage = error.detail || errorMessage;
+    } catch (e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+};
+
+export const createOrGetConversation = async (token: string, otherUserId: number): Promise<Conversation> => {
+  const response = await fetch(`${API_BASE_URL}/chat/conversations`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ other_user_id: otherUserId }),
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to create conversation';
+    try {
+      const error = await response.json();
+      errorMessage = error.detail || errorMessage;
+    } catch (e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+};

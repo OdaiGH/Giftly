@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
-from database import get_db
+from database import get_db, get_db_sync
 from models import Invoice, Order, InvoiceStatus
 from schemas import CreateInvoice, InvoiceResponse
 from auth import get_current_user
@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse
 router = APIRouter()
 
 @router.post("/", response_model=InvoiceResponse)
-def create_invoice(invoice_data: CreateInvoice, db: Session = Depends(get_db)):
+def create_invoice(invoice_data: CreateInvoice, db: Session = Depends(get_db_sync)):
     """
     Create a new invoice for an order. Admin only endpoint.
     """
@@ -62,7 +62,7 @@ def create_invoice(invoice_data: CreateInvoice, db: Session = Depends(get_db)):
     return new_invoice
 
 @router.get("/{invoice_id}", response_model=InvoiceResponse)
-def get_invoice(invoice_id: str, db: Session = Depends(get_db)):
+def get_invoice(invoice_id: str, db: Session = Depends(get_db_sync)):
     """
     Get invoice by invoice_id. Public endpoint for viewing invoices.
     """
@@ -73,7 +73,7 @@ def get_invoice(invoice_id: str, db: Session = Depends(get_db)):
     return invoice
 
 @router.get("/id/{invoice_db_id}", response_model=InvoiceResponse)
-def get_invoice_by_id(invoice_db_id: int, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+def get_invoice_by_id(invoice_db_id: int, current_user=Depends(get_current_user), db: Session = Depends(get_db_sync)):
     """
     Get invoice by database ID. Authenticated users can view their own invoices.
     """
@@ -209,7 +209,7 @@ def download_invoice_pdf(
     order_id: int,
     background_tasks: BackgroundTasks,
     current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_sync)
 ):
     """
     Generate and download PDF invoice for an order.
@@ -251,7 +251,7 @@ def download_invoice_pdf_by_id(
     invoice_db_id: int,
     background_tasks: BackgroundTasks,
     current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_sync)
 ):
     """
     Generate and download PDF invoice by database ID.
@@ -290,7 +290,7 @@ def download_invoice_pdf_by_id(
     )
 
 @router.get("/order/{order_id}", response_model=InvoiceResponse)
-def get_invoice_by_order(order_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_invoice_by_order(order_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db_sync)):
     """
     Get invoice by order ID. Authenticated users can view their own invoices.
     """

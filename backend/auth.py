@@ -4,10 +4,11 @@ import random
 import string
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from models import User, JWTToken
 from config import settings
-from database import get_db
+from database import get_db, get_db_sync
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import logging
@@ -21,8 +22,8 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return pwd_context.hash(password)
 
-def authenticate_user(db: Session, phone_number: str, password: str):
-    user = get_user_by_phone(db, phone_number)
+async def authenticate_user(db: AsyncSession, phone_number: str, password: str):
+    user = await get_user_by_phone(db, phone_number)
     if not user:
         return False
     if not verify_password(password, user.admin_password_hash):
@@ -79,6 +80,36 @@ def create_jwt_tokens(db: Session, user: User):
 
     return access_token, refresh_token
 
+async def create_jwt_tokens_async(db: AsyncSession, user: User):
+    """Create and store JWT tokens for a user (async version)"""
+    # Create tokens
+    access_token_expires = datetime.utcnow() + timedelta(minutes=30)
+    refresh_token_expires = datetime.utcnow() + timedelta(days=7)
+
+    access_token = create_access_token(
+        data={"sub": user.phone_number},
+        expires_delta=timedelta(minutes=30)
+    )
+    refresh_token = create_refresh_token(
+        data={"sub": user.phone_number},
+        expires_delta=timedelta(days=7)
+    )
+
+    # Store in database
+    jwt_token = JWTToken(
+        user_id=user.id,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        access_token_expires_at=access_token_expires,
+        refresh_token_expires_at=refresh_token_expires,
+        is_revoked=False
+    )
+    db.add(jwt_token)
+    await db.commit()
+    await db.refresh(jwt_token)
+
+    return access_token, refresh_token
+
 def revoke_user_tokens(db: Session, user_id: int):
     """Revoke all tokens for a user"""
     db.query(JWTToken).filter(
@@ -104,10 +135,15 @@ def revoke_token_by_refresh_token(db: Session, refresh_token: str):
 def generate_otp():
     return ''.join(random.choices(string.digits, k=6))
 
-def get_user_by_phone(db: Session, phone_number: str):
+async def get_user_by_phone(db: AsyncSession, phone_number: str):
+    from sqlalchemy import select
+    result = await db.execute(select(User).where(User.phone_number == phone_number))
+    return result.scalar_one_or_none()
+
+def get_user_by_phone_sync(db: Session, phone_number: str):
     return db.query(User).filter(User.phone_number == phone_number).first()
 
-def get_current_user(token: str = Depends(security), db: Session = Depends(get_db)):
+def get_current_user(token: str = Depends(security), db: Session = Depends(get_db_sync)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -152,7 +188,7 @@ def get_current_user(token: str = Depends(security), db: Session = Depends(get_d
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-    user = get_user_by_phone(db, phone_number)
+    user = get_user_by_phone_sync(db, phone_number)
     if user is None:
         raise credentials_exception
     return user
@@ -199,7 +235,7 @@ def get_user_from_refresh_token(token: str, db: Session):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = get_user_by_phone(db, phone_number)
+    user = get_user_by_phone_sync(db, phone_number)
     if user is None:
         raise credentials_exception
     return user

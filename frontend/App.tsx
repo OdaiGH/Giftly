@@ -107,6 +107,17 @@ const AppContent: React.FC = () => {
   const [ordersData, setOrdersData] = useState<any[]>([]);
   const { login, token } = useAuth();
 
+  const handleChatStateChange = useCallback((state: { messages: Message[]; input: string; order: any }) => {
+    if (selectedOrderId) {
+      setChatStates(prev => ({
+        ...prev,
+        [selectedOrderId]: state
+      }));
+    }
+  }, [selectedOrderId]);
+
+  const currentChatState = selectedOrderId ? chatStates[selectedOrderId] : null;
+
   const fetchOrders = async () => {
     if (!token) return;
     try {
@@ -221,15 +232,6 @@ const AppContent: React.FC = () => {
         return <CourierChatScreen userRole="customer" onBack={() => setCurrentScreen('home')} onFinishOrder={() => {}} onShowInvoice={() => {}} />;
       case 'customerChat':
         console.log('App.tsx: Rendering CustomerChatScreen with selectedOrderId:', selectedOrderId);
-        const currentChatState = selectedOrderId ? chatStates[selectedOrderId] : null;
-        const handleChatStateChange = useCallback((state: { messages: Message[]; input: string; order: any }) => {
-          if (selectedOrderId) {
-            setChatStates(prev => ({
-              ...prev,
-              [selectedOrderId]: state
-            }));
-          }
-        }, [selectedOrderId]);
         return <CustomerChatScreen
           orderId={selectedOrderId}
           chatState={currentChatState}

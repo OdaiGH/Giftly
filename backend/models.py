@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, ForeignKey, Text, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, ForeignKey, Text, Enum, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -131,3 +131,41 @@ class JWTToken(Base):
 
     # Relationship back to user
     user = relationship("User", back_populates="jwt_tokens")
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    courier_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default='active')
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+
+    # Relationships
+    customer = relationship("User", foreign_keys=[customer_id])
+    courier = relationship("User", foreign_keys=[courier_id])
+    messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint('customer_id', 'courier_id', name='unique_customer_courier'),
+    )
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    sent_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+    message_type = Column(String(20), nullable=False, default='text')  # 'text' or 'invoice'
+    # Invoice specific fields
+    invoice_description = Column(Text, nullable=True)
+    invoice_gift_price = Column(Integer, nullable=True)  # in cents/halaym
+    invoice_service_fee = Column(Integer, nullable=True)
+    invoice_delivery_fee = Column(Integer, nullable=True)
+    invoice_total = Column(Integer, nullable=True)
+
+    # Relationships
+    conversation = relationship("Conversation", back_populates="messages")
+    sender = relationship("User")

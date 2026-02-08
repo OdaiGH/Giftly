@@ -43,6 +43,20 @@ export interface Message {
   };
 }
 
+export interface ChatMessage {
+  id: number;
+  conversation_id: number;
+  sender_id: number;
+  content: string;
+  sent_at: string;
+  message_type: string;
+  invoice_description?: string;
+  invoice_gift_price?: number;
+  invoice_service_fee?: number;
+  invoice_delivery_fee?: number;
+  invoice_total?: number;
+}
+
 export interface Notification {
   id: string;
   title: string;

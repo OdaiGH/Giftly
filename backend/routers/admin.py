@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Form
 from sqlalchemy.orm import Session
-from database import get_db
+from database import get_db, get_db_sync
 from models import User
 from auth import get_password_hash, verify_password
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -10,7 +10,7 @@ router = APIRouter()
 
 security = HTTPBasic()
 
-def authenticate_admin(credentials: HTTPBasicCredentials = Depends(security), db: Session = Depends(get_db)):
+def authenticate_admin(credentials: HTTPBasicCredentials = Depends(security), db: Session = Depends(get_db_sync)):
     user = db.query(User).filter(User.admin_username == credentials.username, User.is_admin == True).first()
     if not user:
         raise HTTPException(
@@ -27,7 +27,7 @@ def authenticate_admin(credentials: HTTPBasicCredentials = Depends(security), db
     return user
 
 @router.post("/create-admin")
-def create_admin_user(username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+def create_admin_user(username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db_sync)):
     # Check if admin already exists
     existing_admin = db.query(User).filter(User.admin_username == username).first()
     if existing_admin:
